@@ -1,0 +1,19 @@
+{
+  "name": "restaurant-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "framer-motion": "^13.1.1",
+    "next": "15.5.24",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "description": "Plataforma de pedidos en línea para restaurantes (Next.js + Supabase), personalizable por cliente."
+}
