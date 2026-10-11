@@ -25,6 +25,7 @@ import BrandLogo from '@/components/BrandLogo';
 import BrandSettingsForm from '@/components/BrandSettingsForm';
 import ThemeEditor from '@/components/ThemeEditor';
 import BranchesManager from '@/components/BranchesManager';
+import TeamManager from '@/components/TeamManager';
 
 
 
@@ -250,12 +251,13 @@ function StaffView({ profile, logout }) {
           <div className="section-head" style={{ marginTop: 34 }}>
             <p className="eyebrow">Tu negocio</p>
             <h2 style={{ fontSize: 22 }}>Configuración</h2>
-            <p>Nombre, logo, colores y sucursales. Los cambios se ven al instante en toda la página.</p>
+            <p>Nombre, logo, colores, sucursales y equipo. Los cambios se ven al instante en toda la página.</p>
           </div>
           <Link href="/setup" className="pill-btn-dark" style={{ marginBottom: 14, display: 'inline-block' }}>Abrir asistente de configuración</Link>
           <details className="admin-details"><summary>Nombre y logo</summary><div><BrandSettingsForm group="identity" /></div></details>
           <details className="admin-details"><summary>Colores</summary><div><ThemeEditor /></div></details>
           <details className="admin-details"><summary>Sucursales</summary><div><BranchesManager /></div></details>
+          <details className="admin-details"><summary>Equipo (dueños y comensales)</summary><div><TeamManager /></div></details>
           <details className="admin-details"><summary>Contacto y horario</summary><div><BrandSettingsForm group="contact" /></div></details>
           <details className="admin-details"><summary>Moneda y gift cards</summary><div><BrandSettingsForm group="money" /></div></details>
         </Reveal>
