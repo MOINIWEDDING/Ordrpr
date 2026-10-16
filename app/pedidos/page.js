@@ -33,8 +33,6 @@ function timeAgo(dateStr) {
 
 export default function PedidosPage() {
   const { profile, isStaff } = useAuth();
-  const { branches } = useBranch();
-  const branchName = (id) => branches.find((b) => b.id === id)?.full || id;
 
   if (!profile) return <AuthGate />;
   if (isStaff) return <StaffRedirectNote />;
@@ -57,6 +55,8 @@ function StaffRedirectNote() {
 }
 
 function MyOrders({ profile }) {
+  const { branches } = useBranch();
+  const branchName = (id) => branches.find((b) => b.id === id)?.full || id;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
