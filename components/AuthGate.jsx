@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BranchSwitcher from './BranchSwitcher';
 import GuestInfoGate from './GuestInfoGate';
-import { AuthBrand, AuthMedia } from './AuthHero';
+import { AuthMedia } from './AuthHero';
 import './auth.css';
 
-// Pantalla que ve quien aún no ha entrado: nombre (o logo) en grande, la portada que
-// eligió el dueño y los botones para crear cuenta, iniciar sesión o seguir como invitado.
+// Pantalla que ve quien aún no ha entrado: la portada que eligió el dueño llena toda la parte
+// de arriba y, debajo, los botones para crear cuenta, iniciar sesión o seguir como invitado.
 export default function AuthGate() {
   const { openAuth } = useAuth();
   const router = useRouter();
@@ -29,7 +29,6 @@ export default function AuthGate() {
       transition={{ duration: 0.3 }}
     >
       <div className="auth-land-hero">
-        <AuthBrand />
         <AuthMedia />
       </div>
 

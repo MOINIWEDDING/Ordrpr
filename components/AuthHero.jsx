@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { isVideoUrl } from '@/lib/upload';
-import { useSettings } from '@/context/SettingsContext';
 
 // Portada del acceso (login y registro): foto o video que sube el dueño desde
 // Cuenta → Fotos del sitio → "Portada de acceso". Mientras no suba nada se muestra
@@ -92,25 +91,6 @@ export function AuthMedia() {
           onLoad={() => setReady(true)}
         />
       ))}
-    </div>
-  );
-}
-
-// Nombre del negocio en grande (o su logo, si ya lo subió).
-export function AuthBrand() {
-  const { settings } = useSettings();
-  const name = (settings.brand_name || '').trim();
-  // La palabra más larga decide el tamaño: así el nombre nunca se parte a la mitad.
-  // (los nombres de varias palabras se achican un poco más para que no ocupen media pantalla)
-  const longest = Math.max(4, name.length * 0.45, ...name.split(/\s+/).map((w) => w.length));
-  return (
-    <div className="auth-brand">
-      {settings.logo_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="auth-logo" src={settings.logo_url} alt={name} />
-      ) : (
-        <h1 className="auth-wordmark" style={{ '--len': longest }}>{name}</h1>
-      )}
     </div>
   );
 }
