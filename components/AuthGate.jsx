@@ -21,6 +21,12 @@ export default function AuthGate() {
     return () => document.body.classList.remove('no-tabbar-padding');
   }, []);
 
+  // Quien ve esta pantalla ya recibió la bienvenida: el inicio no debe devolverlo aquí
+  // (si no, al terminar como invitado volvería a /cuenta en vez de quedarse en el inicio).
+  useEffect(() => {
+    try { window.sessionStorage.setItem('rp-welcome-seen', '1'); } catch (e) { /* ignore */ }
+  }, []);
+
   return (
     <motion.div
       className="auth-land"
