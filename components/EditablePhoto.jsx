@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useUploader } from '@/hooks/useUploader';
 import { isVideoUrl } from '@/lib/upload';
@@ -9,11 +9,12 @@ import Modal from './Modal';
 // Sin fotos de relleno: hasta que el dueño suba las suyas se muestra un marcador neutro.
 export const DEFAULT_SITE_IMAGES = {};
 
-export default function EditablePhoto({ imgKey, label, className = '' }) {
+export default function EditablePhoto({ imgKey, label, className = '', uploadKind = 'site', modalSub }) {
   const [url, setUrl] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const uploader = useUploader();
+  const uploadOpts = useMemo(() => ({ kind: uploadKind }), [uploadKind]);
+  const uploader = useUploader(uploadOpts);
 
   useEffect(() => {
     let active = true;
@@ -73,11 +74,11 @@ export default function EditablePhoto({ imgKey, label, className = '' }) {
         <div className="modal-top">
           <p className="eyebrow">Fotos del sitio</p>
           <h3>Cambiar foto</h3>
-          <p className="modal-sub">Sube una foto desde tu teléfono o toma una nueva con la cámara.</p>
+          <p className="modal-sub">{modalSub || 'Sube una foto desde tu teléfono o toma una nueva con la cámara.'}</p>
         </div>
         <div className="modal-body">
           <form onSubmit={handleSave}>
-            <Uploader uploader={uploader} />
+            <Uploader uploader={uploader} kind={uploadKind} />
             {saveError && <div className="form-msg show error">{saveError}</div>}
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancelar</button>
