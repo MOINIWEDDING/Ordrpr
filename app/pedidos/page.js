@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
@@ -8,6 +8,8 @@ import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
 import BrandLogo from '@/components/BrandLogo';
+import { useToast } from '@/context/ToastContext';
+import { getGuestOrderIds, keepGuestOrders } from '@/lib/guestOrders';
 
 const ORDER_STATUS_LABELS = {
   nueva: 'Nueva',
@@ -34,9 +36,98 @@ function timeAgo(dateStr) {
 export default function PedidosPage() {
   const { profile, isStaff } = useAuth();
 
-  if (!profile) return <AuthGate />;
+  if (!profile) return <GuestOrders />;
   if (isStaff) return <StaffRedirectNote />;
   return <MyOrders profile={profile} />;
+}
+
+// Quien no ha iniciado sesión ve aquí los pedidos que hizo como invitado, y solo mientras no se
+// hayan entregado (al entregarse desaparecen). Si no tiene ninguno activo, ve la pantalla de entrada.
+function GuestOrders() {
+  const { showToast } = useToast();
+  const [state, setState] = useState({ loading: true, orders: [] });
+  const seen = useRef({});
+
+  const load = useCallback(async () => {
+    const ids = getGuestOrderIds();
+    if (!ids.length || !BARRO_CONFIGURED) { setState({ loading: false, orders: [] }); return; }
+    const { data, error } = await sb.rpc('guest_orders', { p_ids: ids });
+    if (error || !Array.isArray(data)) { setState((p) => ({ ...p, loading: false })); return; }
+    // los que estaban y ya no vienen se entregaron
+    const now = new Set(data.map((o) => o.id));
+    Object.keys(seen.current).forEach((id) => {
+      if (!now.has(id)) {
+        showToast(`Tu pedido de ${seen.current[id]} fue entregado`);
+        delete seen.current[id];
+      }
+    });
+    data.forEach((o) => { seen.current[o.id] = o.table_number; });
+    keepGuestOrders(data.map((o) => o.id));
+    setState({ loading: false, orders: data });
+  }, [showToast]);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 8000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const { branches } = useBranch();
+  const branchName = (id) => branches.find((b) => b.id === id)?.full || id;
+
+  if (state.loading) return null;
+  if (!state.orders.length) return <AuthGate />;
+
+  return (
+    <section className="cuenta-page">
+      <div className="wrap">
+        <Reveal className="section-head">
+          <p className="eyebrow">Pedido en curso</p>
+          <h2 style={{ fontSize: 24 }}>Tus pedidos</h2>
+        </Reveal>
+        <div className="orders-list" style={{ marginTop: 24 }}>
+          {state.orders.map((order) => (
+            <OrderCard key={order.id} order={order} branchName={branchName} />
+          ))}
+        </div>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 18, textAlign: 'center' }}>
+          Pediste como invitado. <Link href="/cuenta" style={{ textDecoration: 'underline' }}>Crea una cuenta</Link> para guardar tu historial de pedidos.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function OrderCard({ order, branchName }) {
+  return (
+    <div className="order-card">
+      <BrandLogo alt="" className="card-logo-mark" />
+      <div className="order-card-top">
+        <div>
+          <h4>{order.table_number}</h4>
+          <span className="order-meta">{order.branch ? branchName(order.branch) : ''} · {timeAgo(order.created_at)}</span>
+        </div>
+        <span className="order-price">{money(order.subtotal + (order.tax_amount || 0))}</span>
+      </div>
+      <ul className="order-items">
+        {(order.items || []).map((it, i) => (
+          <li key={i}>
+            <span>{it.qty}× {it.name}</span>
+            {it.notes && <span className="order-item-note">— {it.notes}</span>}
+          </li>
+        ))}
+      </ul>
+      {order.party_size > 1 && (
+        <p className="muted" style={{ fontSize: 11.5, marginTop: -4, marginBottom: 10 }}>
+          Dividida entre {order.party_size}: {money(Math.round((order.subtotal + (order.tax_amount || 0)) / order.party_size))} c/u
+        </p>
+      )}
+      <div className="order-card-bottom">
+        <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}</span>
+        <span className={`order-status-badge status-${order.status}`}>{ORDER_STATUS_LABELS[order.status] || order.status}</span>
+      </div>
+    </div>
+  );
 }
 
 function StaffRedirectNote() {
@@ -91,33 +182,7 @@ function MyOrders({ profile }) {
         ) : (
           <div className="orders-list" style={{ marginTop: 24 }}>
             {orders.map((order) => (
-              <div key={order.id} className="order-card">
-                <BrandLogo alt="" className="card-logo-mark" />
-                <div className="order-card-top">
-                  <div>
-                    <h4>{order.table_number}</h4>
-                    <span className="order-meta">{order.branch ? branchName(order.branch) : ''} · {timeAgo(order.created_at)}</span>
-                  </div>
-                  <span className="order-price">{money(order.subtotal + (order.tax_amount || 0))}</span>
-                </div>
-                <ul className="order-items">
-                  {(order.items || []).map((it, i) => (
-                    <li key={i}>
-                      <span>{it.qty}× {it.name}</span>
-                      {it.notes && <span className="order-item-note">— {it.notes}</span>}
-                    </li>
-                  ))}
-                </ul>
-                {order.party_size > 1 && (
-                  <p className="muted" style={{ fontSize: 11.5, marginTop: -4, marginBottom: 10 }}>
-                    Dividida entre {order.party_size}: {money(Math.round((order.subtotal + (order.tax_amount || 0)) / order.party_size))} c/u
-                  </p>
-                )}
-                <div className="order-card-bottom">
-                  <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}</span>
-                  <span className={`order-status-badge status-${order.status}`}>{ORDER_STATUS_LABELS[order.status] || order.status}</span>
-                </div>
-              </div>
+              <OrderCard key={order.id} order={order} branchName={branchName} />
             ))}
           </div>
         )}
