@@ -10,6 +10,7 @@ import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
+import { newOrderId, rememberGuestOrder } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
@@ -116,7 +117,10 @@ export default function CartDrawer() {
       if (payError) { setPlaceError(payError.message.replace('exception: ', '')); setPlacing(false); return; }
     }
 
+    // Sin cuenta, el pedido lleva un id generado aquí para poder seguirlo luego en Pedidos.
+    const orderId = profile ? null : newOrderId();
     const payload = {
+      ...(orderId ? { id: orderId } : {}),
       customer_name: effectiveName.trim(),
       table_number: orderType === 'pickup' ? 'Pick up' : tableNumber,
       items: lines.map((l) => ({ id: l.id, name: l.name, price: l.price, qty: l.qty, notes: l.notes || '', options: l.options || [] })),
@@ -133,6 +137,7 @@ export default function CartDrawer() {
     if (BARRO_CONFIGURED) {
       const { error } = await sb.from('orders').insert(payload);
       if (error) { setPlaceError('No se pudo enviar el pedido: ' + error.message); setPlacing(false); return; }
+      if (orderId) rememberGuestOrder(orderId);
     }
 
     if (ebOutcome === 'winner' || ebOutcome === 'in_window_no_win') {
