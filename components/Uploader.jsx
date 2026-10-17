@@ -1,5 +1,5 @@
 'use client';
-import { PRODUCT_PHOTO_MIN, PRODUCT_PHOTO_MAX, LANDSCAPE_MIN_W, LANDSCAPE_MIN_H, MAX_VIDEO_SECONDS, COVER_MIN_SIDE } from '@/lib/upload';
+import { PRODUCT_PHOTO_MIN, PRODUCT_PHOTO_MAX, LANDSCAPE_MIN_W, LANDSCAPE_MIN_H, MAX_VIDEO_SECONDS, COVER_W, COVER_H } from '@/lib/upload';
 
 // kind: 'product' (PNG cuadrado sin fondo) | 'avatar' (foto cuadrada normal) | 'site' | 'offer' (foto o video panorámico 16:9)
 export default function Uploader({ uploader, kind = 'site', requireTransparent, hint }) {
@@ -18,7 +18,7 @@ export default function Uploader({ uploader, kind = 'site', requireTransparent, 
       : isAvatar
       ? `Foto cuadrada, entre ${PRODUCT_PHOTO_MIN}×${PRODUCT_PHOTO_MIN} y ${PRODUCT_PHOTO_MAX}×${PRODUCT_PHOTO_MAX}px.`
       : isCover
-      ? `Foto o video, vertical o cuadrado funciona mejor en teléfono (mín. ${COVER_MIN_SIDE}px de lado). Video: máx. ${MAX_VIDEO_SECONDS}s, sin sonido.`
+      ? `Foto o video vertical de ${COVER_W} × ${COVER_H} px (9:16). Video: máx. ${MAX_VIDEO_SECONDS}s, sin sonido.`
       : `Foto o video panorámico (16:9), mínimo ${LANDSCAPE_MIN_W}×${LANDSCAPE_MIN_H}px. Video: máx. ${MAX_VIDEO_SECONDS}s.`;
 
   return (

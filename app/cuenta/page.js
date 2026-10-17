@@ -273,7 +273,7 @@ function StaffView({ profile, logout }) {
         <Reveal delay={0.1}>
           <div className="home-section-top"><h3>Fotos del sitio</h3></div>
           <div className="admin-photo-grid">
-            <div><EditablePhoto imgKey="welcome" label="Portada de acceso" className="admin-thumb" uploadKind="cover" modalSub="Es la foto o video que se ve arriba en el inicio de sesión y el registro. Funciona mejor vertical o cuadrada; un video corto (hasta 20 s, sin sonido) se repite solo." /><span>Portada de acceso (login y registro)</span></div>
+            <div><EditablePhoto imgKey="welcome" label="Portada de acceso" className="admin-thumb" uploadKind="cover" modalSub="Es la foto o video que se ve arriba en la entrada, el inicio de sesión y el registro. Debe ser vertical de 1080 × 1920 px (9:16). Pon lo importante en la mitad de arriba: abajo lo tapan los botones. Un video corto (hasta 20 s, sin sonido) se repite solo." /><span>Portada de acceso (login y registro)</span></div>
             <div><EditablePhoto imgKey="hero" label="Portada" className="admin-thumb" /><span>Portada / oferta</span></div>
             <div><EditablePhoto imgKey="founder" label="Fundador" className="admin-thumb" /><span>Fundador</span></div>
             <div><EditablePhoto imgKey="azotea" label="Ambiente" className="admin-thumb" /><span>Ambiente / terraza</span></div>
