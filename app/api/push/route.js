@@ -106,7 +106,11 @@ export async function POST(req) {
   }
 
   const { data: rows, error } = await db.rpc('push_target', { p_order: orderId });
-  if (error) return json({ error: 'no autorizado' }, 403);
+  if (error) {
+    // la función push_target no existe si falta ejecutar actualizacion-onesignal.sql en Supabase
+    const missing = /push_target|could not find|does not exist/i.test(error.message || '');
+    return json({ error: missing ? 'falta sql' : 'no autorizado', detail: error.message }, missing ? 500 : 403);
+  }
   const target = rows && rows[0];
   if (!target || !target.external_id) return json({ sent: 0, reason: 'el pedido no tiene a quién avisar' });
 
