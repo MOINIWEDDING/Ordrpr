@@ -122,7 +122,8 @@ export async function POST(req) {
   const r = await sendToOneSignal({
     appId, apiKey, externalId: target.external_id,
     heading: brand || 'Tu pedido', text: notice.text,
-    icon: st && st.logo_url, url: `${origin}/pedidos`, topic: `pedido-${orderId}`,
+    // Sin "topic": cada cambio de estado llega como una notificación nueva y no reemplaza a la anterior.
+    icon: st && st.logo_url, url: `${origin}/pedidos`,
   });
   if (r.errors.length) console.error('push: errores de envío', JSON.stringify(r.errors));
   return json(r);
