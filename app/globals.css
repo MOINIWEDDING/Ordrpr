@@ -453,11 +453,6 @@ header{display:none;}
 .acct-head-branch .branch-indicator{margin:0; background:#fff; max-width:100%;}
 .acct-head-branch .branch-indicator span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
-/* atajos a cada grupo del panel del dueño */
-.acct-jump{display:flex; gap:8px; overflow-x:auto; margin:20px -20px 0; padding:2px 20px; scrollbar-width:none;}
-.acct-jump::-webkit-scrollbar{display:none;}
-.acct-jump a{flex:none; padding:9px 16px; border-radius:100px; border:1px solid var(--line); background:#fff; font-family:var(--font-ui); font-size:13px; font-weight:700; color:var(--ink);}
-.acct-jump a:hover{border-color:var(--ink);}
 
 .acct-group{margin-top:38px;}
 .acct-group-head{margin-bottom:16px; scroll-margin-top:96px;}
@@ -482,6 +477,28 @@ header{display:none;}
 .acct-cta small{font-size:12.5px; line-height:1.4; opacity:.85;}
 .acct-cta .acct-chevron{stroke:currentColor;}
 .acct-cta-dark{background:var(--dark); color:var(--cream);}
+
+/* portada del panel: una tarjeta por sección */
+.acct-sections{display:grid; gap:12px;}
+@media (min-width:640px){ .acct-sections{grid-template-columns:repeat(2,1fr);} }
+.acct-section-card{height:100%; display:flex; align-items:center; gap:14px; padding:18px; background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow-soft); color:var(--ink); transition:border-color .2s var(--ease), transform .2s var(--ease);}
+.acct-section-card:hover{border-color:rgba(36,28,19,0.28); transform:translateY(-1px);}
+.acct-section-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;}
+.acct-section-text b{font-family:var(--font-display); font-size:18px; font-weight:600;}
+.acct-section-text small{font-size:12.5px; line-height:1.45; color:var(--ink-soft);}
+
+/* página de cada sección */
+.acct-back{display:inline-flex; align-items:center; gap:4px; font-family:var(--font-ui); font-size:13.5px; font-weight:700; color:var(--ink-soft); padding:6px 10px 6px 4px; margin-left:-4px; border-radius:100px;}
+.acct-back:hover{color:var(--ink);}
+.acct-back svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.cuenta-page .acct-back + .acct-group{margin-top:18px;}
+.acct-section-title{font-size:28px; margin-top:10px; line-height:1.15;}
+.acct-pager{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:28px;}
+.acct-pager a{display:flex; flex-direction:column; gap:2px; padding:14px 16px; border:1px solid var(--line); border-radius:16px; color:var(--ink);}
+.acct-pager a.next{text-align:right;}
+.acct-pager small{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); font-family:var(--font-ui);}
+.acct-pager b{font-family:var(--font-display); font-size:15px; font-weight:600;}
+.acct-pager a:hover{border-color:rgba(36,28,19,0.28);}
 
 .acct-count{font-family:var(--font-ui); font-size:12px; font-weight:700; color:var(--ink-soft); background:var(--cream-2); border-radius:100px; padding:3px 10px;}
 .acct-empty{display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:28px 20px; border:1.5px dashed rgba(36,28,19,0.16); border-radius:var(--radius-lg);}
