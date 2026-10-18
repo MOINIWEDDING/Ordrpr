@@ -10,6 +10,7 @@ import { money } from '@/hooks/useMenuItems';
 import BrandLogo from '@/components/BrandLogo';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
+import { sendOrderPush } from '@/lib/push';
 
 const STATUS_LABELS = {
   nueva: 'Nueva',
@@ -96,7 +97,10 @@ function OrdersList() {
 
   async function updateStatus(id, status) {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
-    if (BARRO_CONFIGURED) await sb.from('orders').update({ status }).eq('id', id);
+    if (BARRO_CONFIGURED) {
+      const { error } = await sb.from('orders').update({ status }).eq('id', id);
+      if (!error && status !== 'nueva') sendOrderPush(id); // aviso al teléfono del cliente (si lo activó)
+    }
   }
 
   async function handleDelete(id) {
