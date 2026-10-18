@@ -735,7 +735,10 @@ header{display:none;}
 .glow-card-content h3{font-size:20px; color:var(--ink);}
 .glow-card-content p{margin-top:4px; font-size:13px; color:var(--ink-soft);}
 .branch-gate-cta{display:inline-flex; align-items:center; gap:6px; margin-top:18px; font-size:13px; font-weight:700; color:var(--amber-deep);}
-.branch-gate-age-card{padding:6px; margin-bottom:14px;}
+.branch-gate-age-form{display:flex; flex-direction:column; gap:14px; width:100%; max-width:320px; margin:0 auto;}
+.branch-gate-age-form .form-msg{margin-top:0;}
+.branch-gate-age-card{padding:6px; width:100%;}
+.branch-gate-age-form .branch-gate-age-card{flex:none;}
 .branch-gate-age-card .glow-card-content{padding:16px 20px;}
 .branch-gate-age-card input{width:100%; background:transparent; border:none; outline:none; color:var(--ink); font-family:var(--font-display); font-size:22px; font-weight:700; text-align:center;}
 .branch-gate-age-card input::placeholder{color:var(--ink-soft); opacity:.6;}
