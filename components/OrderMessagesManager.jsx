@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/context/SettingsContext';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { playNotificationSound } from '@/lib/notificationSound';
-import { PUSH_CONFIGURED } from '@/lib/push';
+import { PUSH_CONFIGURED, testPushHere } from '@/lib/push';
 import {
   ORDER_MESSAGE_STEPS, DEFAULT_ORDER_MESSAGES, ORDER_MESSAGE_MAX, ORDER_PLACEHOLDERS,
   mergeOrderMessages, fillOrderMessage,
@@ -13,9 +14,12 @@ import {
 export default function OrderMessagesManager() {
   const { settings, saveSettings } = useSettings();
   const { showToast } = useToast();
+  const { profile } = useAuth();
   const [draft, setDraft] = useState(() => mergeOrderMessages(settings.order_messages));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
+  const [testing, setTesting] = useState(false);
+  const [testRes, setTestRes] = useState(null);
 
   useEffect(() => { setDraft(mergeOrderMessages(settings.order_messages)); }, [settings.order_messages]);
 
@@ -30,6 +34,13 @@ export default function OrderMessagesManager() {
     const step = draft[status];
     if (draft.sound) playNotificationSound();
     showToast(fillOrderMessage(step.text, sample) || '(mensaje vacío)');
+  }
+
+  async function runTest() {
+    setTesting(true);
+    setTestRes(null);
+    setTestRes(await testPushHere(profile));
+    setTesting(false);
   }
 
   async function handleSave() {
@@ -97,9 +108,16 @@ export default function OrderMessagesManager() {
         <label htmlFor="om-push" style={{ margin: 0, textTransform: 'none', fontSize: 13, letterSpacing: 0, fontWeight: 500, color: 'var(--ink)' }}>
           Enviar también como notificación al teléfono
           <span className="muted" style={{ display: 'block', fontSize: 12.5, fontWeight: 400, marginTop: 3 }}>
-            Le llega aunque tenga la página cerrada, si el cliente activó las notificaciones en Pedidos. {PUSH_CONFIGURED ? 'Es el mismo texto de arriba.' : 'Aún no está conectado: faltan las llaves VAPID en Vercel (mira la guía).'}
+            Le llega aunque tenga la página cerrada, si el cliente activó las notificaciones en Pedidos. {PUSH_CONFIGURED ? 'Es el mismo texto de arriba (se envía con OneSignal).' : 'Aún no está conectado: falta el App ID de OneSignal en Vercel (mira la guía).'}
           </span>
         </label>
+      </div>
+
+      <div style={{ marginTop: 6, padding: '12px 14px', borderRadius: 14, background: 'var(--cream-2)' }}>
+        <b style={{ fontSize: 13.5 }}>Probar las notificaciones en este aparato</b>
+        <span className="muted" style={{ display: 'block', fontSize: 12.5, margin: '2px 0 10px' }}>Te pide permiso, registra este teléfono o computadora y te manda un aviso de ejemplo. Si algo falla, te dice qué revisar.</span>
+        <button type="button" className="btn btn-ghost" disabled={testing} onClick={runTest}>{testing ? 'Probando…' : 'Enviar aviso de prueba'}</button>
+        {testRes && <div className={`form-msg show ${testRes.ok ? 'ok' : 'error'}`} style={{ marginTop: 10 }}>{testRes.text}</div>}
       </div>
 
       <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>

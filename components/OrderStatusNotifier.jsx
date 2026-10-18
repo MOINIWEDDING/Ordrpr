@@ -32,8 +32,8 @@ export default function OrderStatusNotifier() {
     toastRef.current(n.text);
   }
 
-  // Si ya activó las notificaciones, deja este aparato ligado a la cuenta con la que está (o a ninguna)
-  useEffect(() => { if (!isStaff && !isComensal) syncPush(); }, [profile, isStaff, isComensal]);
+  // Si ya activó las notificaciones, deja este aparato ligado a la cuenta con la que está (o como invitado)
+  useEffect(() => { if (!isStaff && !isComensal) syncPush(profile); }, [profile, isStaff, isComensal]);
 
   // Cliente con cuenta: tiempo real
   useEffect(() => {

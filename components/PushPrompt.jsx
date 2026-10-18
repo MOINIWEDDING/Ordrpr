@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { enablePush, pushState } from '@/lib/push';
-import { getGuestOrderIds } from '@/lib/guestOrders';
 
 // Invitación a recibir los avisos del pedido como notificación del teléfono (funcionan con la página cerrada).
 export default function PushPrompt() {
+  const { profile } = useAuth();
   const [state, setState] = useState('unsupported');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -14,11 +15,11 @@ export default function PushPrompt() {
   async function turnOn() {
     setBusy(true);
     setFailed(false);
-    const res = await enablePush(getGuestOrderIds()); // liga los pedidos de invitado de este navegador
+    const res = await enablePush(profile);
     setBusy(false);
     const next = pushState();
     // el permiso puede quedar concedido aunque el aparato no haya podido suscribirse: no se da por activado
-    if (!res.ok && res.reason === 'error') { setFailed(true); setState('default'); return; }
+    if (!res.ok && (res.reason === 'error' || res.reason === 'sdk')) { setFailed(true); setState('default'); return; }
     setState(next);
   }
 

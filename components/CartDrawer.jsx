@@ -10,8 +10,7 @@ import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
-import { newOrderId, rememberGuestOrder } from '@/lib/guestOrders';
-import { syncPush } from '@/lib/push';
+import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
@@ -121,7 +120,7 @@ export default function CartDrawer() {
     // Sin cuenta, el pedido lleva un id generado aquí para poder seguirlo luego en Pedidos.
     const orderId = profile ? null : newOrderId();
     const payload = {
-      ...(orderId ? { id: orderId } : {}),
+      ...(orderId ? { id: orderId, push_ref: getGuestPushRef() } : {}), // push_ref: a qué aparato avisar (invitado)
       customer_name: effectiveName.trim(),
       table_number: orderType === 'pickup' ? 'Pick up' : tableNumber,
       items: lines.map((l) => ({ id: l.id, name: l.name, price: l.price, qty: l.qty, notes: l.notes || '', options: l.options || [] })),
@@ -136,9 +135,15 @@ export default function CartDrawer() {
     };
 
     if (BARRO_CONFIGURED) {
-      const { error } = await sb.from('orders').insert(payload);
+      let { error } = await sb.from('orders').insert(payload);
+      // si la base de datos aún no tiene la columna push_ref (falta ejecutar el SQL de notificaciones), el pedido se envía igual
+      if (error && payload.push_ref && /push_ref/i.test(error.message || '')) {
+        const withoutRef = { ...payload };
+        delete withoutRef.push_ref;
+        ({ error } = await sb.from('orders').insert(withoutRef));
+      }
       if (error) { setPlaceError('No se pudo enviar el pedido: ' + error.message); setPlacing(false); return; }
-      if (orderId) { rememberGuestOrder(orderId); syncPush(orderId); } // liga el pedido a las notificaciones de este aparato
+      if (orderId) rememberGuestOrder(orderId);
     }
 
     if (ebOutcome === 'winner' || ebOutcome === 'in_window_no_win') {
