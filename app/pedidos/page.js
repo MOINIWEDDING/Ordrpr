@@ -8,6 +8,7 @@ import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
 import BrandLogo from '@/components/BrandLogo';
+import PushPrompt from '@/components/PushPrompt';
 import { getGuestOrderIds, keepGuestOrders } from '@/lib/guestOrders';
 
 const ORDER_STATUS_LABELS = {
@@ -73,6 +74,7 @@ function GuestOrders() {
           <p className="eyebrow">Pedido en curso</p>
           <h2 style={{ fontSize: 24 }}>Tus pedidos</h2>
         </Reveal>
+        <PushPrompt />
         <div className="orders-list" style={{ marginTop: 24 }}>
           {state.orders.map((order) => (
             <OrderCard key={order.id} order={order} branchName={branchName} />
@@ -164,6 +166,7 @@ function MyOrders({ profile }) {
           <h2 style={{ fontSize: 24 }}>Tus pedidos</h2>
           <p>El estado se actualiza solo, en tiempo real, conforme el local lo va cambiando.</p>
         </Reveal>
+        <PushPrompt />
 
         {loading ? null : orders.length === 0 ? (
           <p className="empty-note" style={{ marginTop: 20 }}>Todavía no has hecho ningún pedido.</p>
