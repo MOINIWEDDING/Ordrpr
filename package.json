@@ -13,7 +13,8 @@
     "framer-motion": "^13.1.1",
     "next": "15.5.24",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "web-push": "^3.6.7"
   },
   "description": "Plataforma de pedidos en línea para restaurantes (Next.js + Supabase), personalizable por cliente."
 }
