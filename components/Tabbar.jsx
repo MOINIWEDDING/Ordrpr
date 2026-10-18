@@ -37,7 +37,7 @@ export default function Tabbar() {
   return (
     <nav className="tabbar">
       {tabs.map((t) => (
-        <Link key={t.href} href={t.href} className={pathname === t.href ? 'current' : ''}>
+        <Link key={t.href} href={t.href} className={pathname === t.href || (t.href !== '/' && pathname.startsWith(`${t.href}/`)) ? 'current' : ''}>
           <span style={{ position: 'relative' }}>
             <svg viewBox="0 0 24 24">{t.icon}</svg>
             {t.href === '/cuenta' && profile && <span className={`tab-dot${isStaff ? ' staff' : ''}`} />}

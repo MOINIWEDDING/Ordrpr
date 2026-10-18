@@ -6,27 +6,15 @@ import { useAuth } from '@/context/AuthContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useMenuItems, money } from '@/hooks/useMenuItems';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
-import EditablePhoto from '@/components/EditablePhoto';
 import ProductCard from '@/components/ProductCard';
-import OffersCarousel from '@/components/OffersCarousel';
 import GiftCardModal from '@/components/GiftCardModal';
-import GiftCardDesignManager from '@/components/GiftCardDesignManager';
-import GiftCardGiftModal from '@/components/GiftCardGiftModal';
 import Avatar from '@/components/Avatar';
 import AvatarPicker from '@/components/AvatarPicker';
-import AvatarLibraryManager from '@/components/AvatarLibraryManager';
-import TableManager from '@/components/TableManager';
-import EarlyBirdManager from '@/components/EarlyBirdManager';
-import TaxSettingsManager from '@/components/TaxSettingsManager';
-import OrderMessagesManager from '@/components/OrderMessagesManager';
 import Reveal from '@/components/Reveal';
 import AuthGate from '@/components/AuthGate';
 import BranchSwitcher from '@/components/BranchSwitcher';
 import BrandLogo from '@/components/BrandLogo';
-import BrandSettingsForm from '@/components/BrandSettingsForm';
-import ThemeEditor from '@/components/ThemeEditor';
-import BranchesManager from '@/components/BranchesManager';
-import TeamManager from '@/components/TeamManager';
+import { Chevron, ownerSections } from '@/components/OwnerSections';
 
 export default function CuentaPage() {
   const { profile, isStaff, isComensal, logout } = useAuth();
@@ -80,10 +68,6 @@ function ComensalView({ profile, logout }) {
       </div>
     </section>
   );
-}
-
-function Chevron({ className = '' }) {
-  return <svg className={`acct-chevron ${className}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>;
 }
 
 function ClientView({ profile, logout }) {
@@ -246,109 +230,9 @@ function GiftCardDetailModal({ card, onClose }) {
   );
 }
 
-// Herramientas del dueño, agrupadas por para qué sirven. Cada una se abre como un panel
-// y su contenido se carga solo la primera vez que se abre (antes se cargaban todas al entrar).
-const SITE_PHOTOS = [
-  { key: 'welcome', label: 'Portada de acceso', caption: 'Portada de acceso (login y registro)', uploadKind: 'cover', modalSub: 'Es la foto o video que se ve arriba en la entrada, el inicio de sesión y el registro. Debe ser vertical de 1080 × 1920 px (9:16). Pon lo importante en la mitad de arriba: abajo lo tapan los botones. Un video corto (hasta 20 s, sin sonido) se repite solo.' },
-  { key: 'hero', label: 'Portada', caption: 'Portada / oferta' },
-  { key: 'founder', label: 'Fundador', caption: 'Fundador' },
-  { key: 'azotea', label: 'Ambiente', caption: 'Ambiente / terraza' },
-  { key: 'gallery-0', label: 'Galería 1', caption: 'Galería 1' },
-  { key: 'gallery-1', label: 'Galería 2', caption: 'Galería 2' },
-  { key: 'gallery-2', label: 'Galería 3', caption: 'Galería 3' },
-  { key: 'map', label: 'Mapa', caption: 'Mapa / fachada' },
-];
-
-function SitePhotos() {
-  return (
-    <div className="admin-photo-grid">
-      {SITE_PHOTOS.map((ph) => (
-        <div key={ph.key}>
-          <EditablePhoto imgKey={ph.key} label={ph.label} className="admin-thumb" uploadKind={ph.uploadKind} modalSub={ph.modalSub} />
-          <span>{ph.caption}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function StaffView({ profile, logout }) {
   const [pickingAvatar, setPickingAvatar] = useState(false);
-  const [gifting, setGifting] = useState(false);
-
-  const groups = [
-    {
-      id: 'negocio',
-      eyebrow: 'Tu negocio',
-      title: 'Configuración',
-      sub: 'Nombre, logo, colores, sucursales y equipo. Los cambios se ven al instante en toda la página.',
-      lead: (
-        <Link href="/setup" className="acct-cta acct-cta-dark">
-          <span>
-            <b>Asistente de configuración</b>
-            <small>Te guía paso a paso por lo esencial de tu negocio.</small>
-          </span>
-          <Chevron />
-        </Link>
-      ),
-      tools: [
-        { id: 'identity', title: 'Nombre y logo', desc: 'Nombre, eslogan, logo y descripción para Google.', render: () => <BrandSettingsForm group="identity" /> },
-        { id: 'colors', title: 'Colores', desc: 'Los colores de botones, fondos y textos.', render: () => <ThemeEditor /> },
-        { id: 'branches', title: 'Sucursales', desc: 'Los locales donde atiendes.', render: () => <BranchesManager /> },
-        { id: 'team', title: 'Equipo', desc: 'Dueños y comensales que te ayudan con los pedidos.', render: () => <TeamManager /> },
-        { id: 'contact', title: 'Contacto y horario', desc: 'Dirección, teléfono, WhatsApp, redes y horario.', render: () => <BrandSettingsForm group="contact" /> },
-        { id: 'money', title: 'Moneda y gift cards', desc: 'Símbolo de la moneda y prefijo de los códigos de gift card.', render: () => <BrandSettingsForm group="money" /> },
-      ],
-    },
-    {
-      id: 'pagina',
-      eyebrow: 'Tu página',
-      title: 'Personalización',
-      sub: 'Los productos y categorías se editan directamente en Inicio y Menú (aparecen los controles al pasar el cursor). Aquí manejas las fotos, los banners y la página Nosotros.',
-      tools: [
-        { id: 'photos', title: 'Fotos del sitio', desc: 'Portada de acceso, portada, ambiente, galería y mapa.', render: () => <SitePhotos /> },
-        { id: 'offers', title: 'Banners de oferta', desc: 'Los anuncios que se deslizan en Inicio.', render: () => <OffersCarousel /> },
-        {
-          id: 'nosotros',
-          title: 'Página "Nosotros"',
-          desc: 'No está en tu barra de navegación, pero puedes editarle el texto y las fotos.',
-          render: () => <Link href="/nosotros" className="pill-btn-dark">Editar página de Nosotros</Link>,
-        },
-      ],
-    },
-    {
-      id: 'pedidos',
-      eyebrow: 'Pedidos',
-      title: 'Cómo se pide',
-      sub: 'Mesas, precios finales, avisos al cliente y promociones del día.',
-      tools: [
-        { id: 'tables', title: 'Mesas', desc: 'Las mesas que el cliente elige al pedir en la sucursal activa.', render: () => <TableManager /> },
-        { id: 'taxes', title: 'Impuestos y porcientos', desc: 'Se suman automáticamente al precio cuando alguien paga desde la app.', render: () => <TaxSettingsManager /> },
-        { id: 'messages', title: 'Avisos de pedidos', desc: 'El mensaje que le sale al cliente cuando cambias el estado de su pedido.', render: () => <OrderMessagesManager /> },
-        { id: 'earlybird', title: 'Early Bird · bebida gratis', desc: 'El primero que pida dentro del horario se gana el premio. Se reinicia cada día.', render: () => <EarlyBirdManager /> },
-      ],
-    },
-    {
-      id: 'clientes',
-      eyebrow: 'Clientes',
-      title: 'Gift cards y avatares',
-      sub: 'Lo que tus clientes compran, reciben y eligen para su perfil.',
-      tools: [
-        {
-          id: 'giftdesigns',
-          title: 'Diseños de gift card',
-          desc: 'Las tarjetas que tus clientes pueden comprar o recibir de regalo.',
-          render: () => (
-            <>
-              <button type="button" className="pill-btn-dark" style={{ marginBottom: 16 }} onClick={() => setGifting(true)}>Regalar una gift card</button>
-              <GiftCardDesignManager />
-            </>
-          ),
-        },
-        { id: 'avatars', title: 'Fotos de avatar', desc: 'Los clientes eligen entre estas fotos; ellos no pueden subir las suyas.', render: () => <AvatarLibraryManager /> },
-      ],
-    },
-  ];
+  const sections = ownerSections({ onGift: () => {} });
 
   return (
     <section className="cuenta-page">
@@ -357,58 +241,29 @@ function StaffView({ profile, logout }) {
 
         {pickingAvatar && <AvatarPicker onClose={() => setPickingAvatar(false)} />}
 
-        <nav className="acct-jump" aria-label="Secciones del panel">
-          {groups.map((g) => <a key={g.id} href={`#${g.id}`}>{g.eyebrow}</a>)}
-        </nav>
+        <div className="section-head acct-group-head" style={{ marginTop: 34 }}>
+          <p className="eyebrow">Panel del dueño</p>
+          <h2>Administra tu negocio</h2>
+          <p>Cada sección tiene su propia página. Entra a la que necesites.</p>
+        </div>
 
-        {groups.map((g, gi) => (
-          <Reveal key={g.id} delay={0.03 + gi * 0.03} className="acct-group">
-            <div className="section-head acct-group-head" id={g.id}>
-              <p className="eyebrow">{g.eyebrow}</p>
-              <h2>{g.title}</h2>
-              <p>{g.sub}</p>
-            </div>
-            {g.lead}
-            <div className="acct-tools">
-              {g.tools.map((t) => <ToolPanel key={t.id} id={t.id} title={t.title} desc={t.desc}>{t.render}</ToolPanel>)}
-            </div>
-          </Reveal>
-        ))}
-
-        {gifting && <GiftCardGiftModal onClose={() => setGifting(false)} onDone={() => {}} />}
+        <div className="acct-sections">
+          {sections.map((sec, i) => (
+            <Reveal key={sec.id} delay={0.03 + i * 0.03}>
+              <Link href={`/cuenta/${sec.id}`} className="acct-section-card">
+                <span className="acct-section-text">
+                  <span className="acct-role">{sec.eyebrow}</span>
+                  <b>{sec.title}</b>
+                  <small>{sec.tools.map((t) => t.title).join(' · ')}</small>
+                </span>
+                <Chevron />
+              </Link>
+            </Reveal>
+          ))}
+        </div>
 
         <LogoutButton logout={logout} />
       </div>
     </section>
-  );
-}
-
-// Panel plegable. El contenido se monta la primera vez que se abre y después solo se oculta,
-// así no se pierde lo que el dueño estaba escribiendo si lo cierra y lo vuelve a abrir.
-function ToolPanel({ id, title, desc, children }) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const bodyId = `tool-${id}`;
-
-  function toggle() {
-    setMounted(true);
-    setOpen((v) => !v);
-  }
-
-  return (
-    <div className={`acct-tool${open ? ' open' : ''}`}>
-      <button type="button" className="acct-tool-head" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
-        <span>
-          <b>{title}</b>
-          <small>{desc}</small>
-        </span>
-        <Chevron />
-      </button>
-      {mounted && (
-        <div id={bodyId} className="acct-tool-body" hidden={!open}>
-          {children()}
-        </div>
-      )}
-    </div>
   );
 }

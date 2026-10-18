@@ -46,7 +46,7 @@ export default function Header() {
       <div className="wrap">
         <nav className="links">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className={pathname === l.href ? 'current' : ''} style={{ position: 'relative' }}>
+            <Link key={l.href} href={l.href} className={pathname === l.href || (l.href !== '/' && pathname.startsWith(`${l.href}/`)) ? 'current' : ''} style={{ position: 'relative' }}>
               {l.label}
               {l.badge && unseenCount > 0 && <span className="tab-badge" style={{ position: 'absolute', top: -8, right: -16 }}>{unseenCount > 9 ? '9+' : unseenCount}</span>}
             </Link>
