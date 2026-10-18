@@ -25,11 +25,69 @@ function addDays(date, n) {
   d.setDate(d.getDate() + n);
   return d;
 }
+function addMonths(date, n) {
+  return new Date(date.getFullYear(), date.getMonth() + n, 1);
+}
+const capitalize = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const shortDate = (d) => d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+
+const PERIODS = [
+  { id: 'dia', label: 'Día' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'mes', label: 'Mes' },
+  { id: 'todo', label: 'Todo' },
+];
+
+// Rango [start, end) del periodo que contiene el día elegido, y del periodo anterior.
+// Las semanas van de lunes a domingo.
+function periodRange(period, key) {
+  const d = startOfDay(key);
+  if (period === 'semana') {
+    const start = addDays(d, -((d.getDay() + 6) % 7));
+    return { start, end: addDays(start, 7), prevStart: addDays(start, -7) };
+  }
+  if (period === 'mes') {
+    const start = addMonths(d, 0);
+    return { start, end: addMonths(d, 1), prevStart: addMonths(d, -1) };
+  }
+  return { start: d, end: addDays(d, 1), prevStart: addDays(d, -1) };
+}
+
+function periodTitle(period, range) {
+  const now = new Date();
+  const current = now >= range.start && now < range.end;
+  if (period === 'semana') {
+    if (current) return 'Esta semana';
+    return `Semana del ${shortDate(range.start)} al ${shortDate(addDays(range.end, -1))}`;
+  }
+  if (period === 'mes') {
+    if (current) return 'Este mes';
+    return capitalize(range.start.toLocaleDateString('es', { month: 'long', year: 'numeric' }));
+  }
+  return dayTitle(dayKey(range.start));
+}
+
 function dayTitle(key) {
   if (key === dayKey(new Date())) return 'Hoy';
   if (key === dayKey(addDays(new Date(), -1))) return 'Ayer';
-  const label = startOfDay(key).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  return capitalize(startOfDay(key).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }));
+}
+
+const sumSubtotal = (list) => list.reduce((s, o) => s + Number(o.subtotal || 0), 0);
+
+// Los números principales de un grupo de pedidos (se calculan igual para el periodo y para el anterior).
+function summarize(orders, costById) {
+  const revenue = sumSubtotal(orders);
+  let cost = 0;
+  orders.forEach((o) => (o.items || []).forEach((it) => { cost += (costById[it.id] || 0) * it.qty; }));
+  return {
+    revenue,
+    count: orders.length,
+    avgTicket: orders.length ? revenue / orders.length : 0,
+    card: sumSubtotal(orders.filter((o) => o.payment_method === 'tarjeta')),
+    cash: sumSubtotal(orders.filter((o) => o.payment_method === 'efectivo')),
+    profit: revenue - cost,
+  };
 }
 
 export default function EstadisticasPage() {
@@ -42,7 +100,9 @@ export default function EstadisticasPage() {
   const [giftCards, setGiftCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [day, setDay] = useState(() => dayKey(new Date())); // '' = todo el historial
+  const [period, setPeriod] = useState('dia'); // 'dia' | 'semana' | 'mes' | 'todo'
+  const [day, setDay] = useState(() => dayKey(new Date())); // cualquier día dentro del periodo elegido
+  const range = useMemo(() => (period === 'todo' ? null : periodRange(period, day)), [period, day]);
 
   useEffect(() => {
     if (profile && !isStaff) router.push('/');
@@ -57,13 +117,10 @@ export default function EstadisticasPage() {
         let ordersQuery = sb.from('orders').select('*');
         let giftQuery = sb.from('gift_cards').select('*');
         if (branch) ordersQuery = ordersQuery.eq('branch', branch);
-        if (day) {
-          // Se traen los 7 días que terminan en el día elegido: el día en sí para los números
-          // y la semana completa para la gráfica de ventas.
-          const start = startOfDay(day);
-          const end = addDays(start, 1);
-          ordersQuery = ordersQuery.gte('created_at', addDays(start, -6).toISOString()).lt('created_at', end.toISOString());
-          giftQuery = giftQuery.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+        if (range) {
+          // Se traen el periodo elegido y el anterior completo, para poder compararlos.
+          ordersQuery = ordersQuery.gte('created_at', range.prevStart.toISOString()).lt('created_at', range.end.toISOString());
+          giftQuery = giftQuery.gte('created_at', range.start.toISOString()).lt('created_at', range.end.toISOString());
         }
         const [ordersRes, profilesRes, itemsRes, giftRes] = await Promise.all([
           ordersQuery,
@@ -84,23 +141,24 @@ export default function EstadisticasPage() {
       }
     }
     load();
-  }, [branch, day]);
+  }, [branch, range]);
 
   const stats = useMemo(() => {
-    const weekOrders = rawOrders;
-    let orders = weekOrders;
-    if (day) {
-      const start = startOfDay(day);
-      const end = addDays(start, 1);
-      orders = weekOrders.filter((o) => { const t = new Date(o.created_at); return t >= start && t < end; });
-    }
+    const between = (list, from, to) => list.filter((o) => { const t = new Date(o.created_at); return t >= from && t < to; });
+    const costById = {}; menuItems.forEach((m) => { costById[m.id] = Number(m.cost || 0); });
+    const orders = range ? between(rawOrders, range.start, range.end) : rawOrders;
+    const prevOrders = range ? between(rawOrders, range.prevStart, range.start) : [];
 
-    const totalRevenue = orders.reduce((s, o) => s + Number(o.subtotal || 0), 0);
-    const totalOrders = orders.length;
-    const avgTicket = totalOrders ? totalRevenue / totalOrders : 0;
-    const revenueBy = (method) => orders.filter((o) => o.payment_method === method).reduce((s, o) => s + Number(o.subtotal || 0), 0);
-    const cardRevenue = revenueBy('tarjeta');
-    const cashRevenue = revenueBy('efectivo');
+    // Si el periodo está en curso (hoy, esta semana, este mes), se compara contra el anterior
+    // solo hasta el mismo punto: hoy a las 3 p. m. contra ayer a las 3 p. m., no contra ayer completo.
+    const now = new Date();
+    const inProgress = Boolean(range) && now >= range.start && now < range.end;
+    const prevCutoff = inProgress ? new Date(Math.min(range.prevStart.getTime() + (now - range.start), range.start.getTime())) : range && range.start;
+    const current = summarize(orders, costById);
+    const previous = range ? summarize(between(prevOrders, range.prevStart, prevCutoff), costById) : null;
+
+    const totalRevenue = current.revenue;
+    const totalOrders = current.count;
 
     const itemMap = {};
     orders.forEach((o) => (o.items || []).forEach((it) => {
@@ -152,35 +210,58 @@ export default function EstadisticasPage() {
     const hourCounts = Array(24).fill(0);
     orders.forEach((o) => { const h = new Date(o.created_at).getHours(); hourCounts[h]++; });
 
-    const days = [];
-    const lastDay = day ? startOfDay(day) : startOfDay(dayKey(new Date()));
-    for (let i = 6; i >= 0; i--) days.push(addDays(lastDay, -i));
-    const dayRevenue = days.map((d) => {
-      const next = addDays(d, 1);
-      const revenue = weekOrders
-        .filter((o) => { const t = new Date(o.created_at); return t >= d && t < next; })
-        .reduce((s, o) => s + Number(o.subtotal || 0), 0);
-      return { label: DAY_LABELS[d.getDay()], value: revenue };
-    });
+    // Gráfica: con "Todo", los últimos 7 días; con un periodo, el periodo contra el anterior completo.
+    let dayRevenue = [];
+    let compareChart = [];
+    if (!range) {
+      const today = startOfDay(dayKey(now));
+      for (let i = 6; i >= 0; i--) {
+        const d = addDays(today, -i);
+        dayRevenue.push({ label: DAY_LABELS[d.getDay()], value: sumSubtotal(between(orders, d, addDays(d, 1))) });
+      }
+    } else {
+      const slotOf = (o, start) => {
+        const t = new Date(o.created_at);
+        if (period === 'dia') return t.getHours();
+        if (period === 'semana') return Math.round((startOfDay(dayKey(t)) - start) / 86400000); // round: un día de cambio de horario dura 23 o 25 h
+        return t.getDate() - 1;
+      };
+      const slots = period === 'dia' ? 24 : period === 'semana' ? 7
+        : Math.max(addDays(range.end, -1).getDate(), addDays(range.start, -1).getDate());
+      compareChart = Array.from({ length: slots }, (_, i) => ({
+        label: period === 'dia' ? (i % 3 === 0 ? `${i}h` : '')
+          : period === 'semana' ? DAY_LABELS[(i + 1) % 7]
+          : (i === 0 || (i + 1) % 5 === 0 ? String(i + 1) : ''),
+        value: 0,
+        prev: 0,
+      }));
+      orders.forEach((o) => { const i = slotOf(o, range.start); if (compareChart[i]) compareChart[i].value += Number(o.subtotal || 0); });
+      prevOrders.forEach((o) => { const i = slotOf(o, range.prevStart); if (compareChart[i]) compareChart[i].prev += Number(o.subtotal || 0); });
+    }
 
     const gcSoldCount = giftCards.length;
     const gcSoldAmount = giftCards.reduce((s, g) => s + Number(g.amount || 0), 0);
     const gcRedeemedCount = giftCards.filter((g) => g.status === 'canjeada').length;
     const gcActiveBalance = giftCards.filter((g) => g.status === 'activa').reduce((s, g) => s + Number(g.amount || 0), 0);
 
-    let totalCost = 0;
-    const costById = {}; menuItems.forEach((m) => { costById[m.id] = Number(m.cost || 0); });
-    orders.forEach((o) => (o.items || []).forEach((it) => { totalCost += (costById[it.id] || 0) * it.qty; }));
     const hasCostData = menuItems.some((m) => Number(m.cost || 0) > 0);
-    const profit = totalRevenue - totalCost;
 
     return {
-      totalRevenue, totalOrders, avgTicket, cardRevenue, cashRevenue, bestSellers, worstSellers, categories, payments,
+      current, previous, inProgress, prevCount: prevOrders.length, compareChart,
+      totalOrders, bestSellers, worstSellers, categories, payments,
       genders, ages, accountOrders, guestOrders, hourCounts, dayRevenue,
       gcSoldCount, gcSoldAmount, gcRedeemedCount, gcActiveBalance,
-      hasCostData, profit, totalClients: profiles.length,
+      hasCostData, totalClients: profiles.length,
     };
-  }, [rawOrders, profiles, menuItems, giftCards, day]);
+  }, [rawOrders, profiles, menuItems, giftCards, range, period]);
+
+  const compareLabel = !range ? '' : {
+    dia: stats.inProgress ? 'ayer a esta hora' : 'el día anterior',
+    semana: stats.inProgress ? 'la semana pasada a estas alturas' : 'la semana anterior',
+    mes: stats.inProgress ? 'el mes pasado a estas alturas' : 'el mes anterior',
+  }[period];
+  const prevName = { dia: 'Día anterior', semana: 'Semana anterior', mes: 'Mes anterior' }[period];
+  const delta = (key) => (stats.previous ? { prev: stats.previous[key] } : null);
 
   if (!profile || !isStaff) return null;
 
@@ -193,29 +274,37 @@ export default function EstadisticasPage() {
           <p>{branchInfo ? `Ventas y pedidos de ${branchInfo.full}. Los clientes y gift cards son del negocio completo.` : 'Un vistazo a cómo le está yendo al local.'}</p>
         </div>
 
-        <DayPicker day={day} onChange={setDay} />
+        <PeriodTabs period={period} onChange={setPeriod} />
+        <DayPicker period={period} day={day} range={range} onChange={setDay} />
+        {range && <p className="stat-compare-note">Cada número se compara con {compareLabel}.</p>}
 
         {loading ? (
           <p className="empty-note">Cargando estadísticas…</p>
         ) : loadError ? (
           <div className="form-msg show error">No se pudieron cargar las estadísticas: {loadError}</div>
-        ) : stats.totalOrders === 0 ? (
-          <p className="empty-note">{day ? 'No hubo pedidos este día.' : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
+        ) : stats.totalOrders === 0 && !stats.prevCount ? (
+          <p className="empty-note">{range ? `No hubo pedidos ${{ dia: 'este día', semana: 'esta semana', mes: 'este mes' }[period]} ni ${{ dia: 'el anterior', semana: 'la anterior', mes: 'el anterior' }[period]}.` : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
         ) : (
           <>
             <div className="kpi-grid">
-              <KpiCard label="Ventas totales" value={money(stats.totalRevenue)} />
-              <KpiCard label={day ? 'Pedidos del día' : 'Pedidos'} value={stats.totalOrders} />
-              <KpiCard label="Vendido en tarjeta" value={money(stats.cardRevenue)} />
-              <KpiCard label="Vendido en efectivo" value={money(stats.cashRevenue)} />
-              <KpiCard label="Ticket promedio" value={money(Math.round(stats.avgTicket))} />
+              <KpiCard label="Ventas totales" value={stats.current.revenue} format={money} delta={delta('revenue')} />
+              <KpiCard label={{ dia: 'Pedidos del día', semana: 'Pedidos de la semana', mes: 'Pedidos del mes' }[period] || 'Pedidos'} value={stats.current.count} delta={delta('count')} />
+              <KpiCard label="Vendido en tarjeta" value={stats.current.card} format={money} delta={delta('card')} />
+              <KpiCard label="Vendido en efectivo" value={stats.current.cash} format={money} delta={delta('cash')} />
+              <KpiCard label="Ticket promedio" value={stats.current.avgTicket} format={(v) => money(Math.round(v))} delta={delta('avgTicket')} />
               <KpiCard label="Clientes registrados" value={stats.totalClients} />
-              {stats.hasCostData && <KpiCard label="Ganancia estimada" value={money(Math.round(stats.profit))} highlight />}
+              {stats.hasCostData && <KpiCard label="Ganancia estimada" value={stats.current.profit} format={(v) => money(Math.round(v))} delta={delta('profit')} highlight />}
             </div>
 
-            <StatSection title={day ? `Ventas de los 7 días hasta ${dayTitle(day).toLowerCase()}` : 'Ventas de los últimos 7 días'}>
-              <MiniBarChart data={stats.dayRevenue} formatValue={(v) => money(Math.round(v))} />
-            </StatSection>
+            {range ? (
+              <StatSection title={`Ventas: ${periodTitle(period, range).toLowerCase()} vs. ${prevName.toLowerCase()}`}>
+                <CompareChart data={stats.compareChart} currentLabel={periodTitle(period, range)} prevLabel={prevName} formatValue={(v) => money(Math.round(v))} dense={period !== 'semana'} />
+              </StatSection>
+            ) : (
+              <StatSection title="Ventas de los últimos 7 días">
+                <MiniBarChart data={stats.dayRevenue} formatValue={(v) => money(Math.round(v))} />
+              </StatSection>
+            )}
 
             <div className="stat-two-col">
               <StatSection title="Platos más vendidos">
@@ -281,9 +370,22 @@ export default function EstadisticasPage() {
   );
 }
 
-function DayPicker({ day, onChange }) {
+function PeriodTabs({ period, onChange }) {
+  return (
+    <div className="stat-period-tabs" role="tablist" aria-label="Periodo">
+      {PERIODS.map((p) => (
+        <button key={p.id} type="button" role="tab" aria-selected={period === p.id} className={period === p.id ? 'active' : ''} onClick={() => onChange(p.id)}>
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DayPicker({ period, day, range, onChange }) {
   const today = dayKey(new Date());
   const inputRef = useRef(null);
+  if (!range) return null;
 
   function openCalendar() {
     const input = inputRef.current;
@@ -291,24 +393,26 @@ function DayPicker({ day, onChange }) {
     try { input.showPicker(); } catch (e) { input.focus(); input.click(); }
   }
 
+  // Las flechas saltan un periodo completo (un día, una semana o un mes).
   function shift(n) {
-    const next = dayKey(addDays(startOfDay(day || today), n));
-    if (next <= today) onChange(next);
+    const base = startOfDay(day);
+    const next = period === 'mes' ? addMonths(base, n) : addDays(base, period === 'semana' ? 7 * n : n);
+    const key = dayKey(next);
+    onChange(key > today ? today : key);
   }
+  const canGoForward = dayKey(range.end) <= today;
 
   return (
     <div className="stat-day-picker">
-      {day && (
-        <button type="button" className="stat-day-arrow" aria-label="Día anterior" onClick={() => shift(-1)}>
-          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
-        </button>
-      )}
-      <button type="button" className="stat-day-btn" onClick={openCalendar} aria-label="Elegir día en el calendario">
+      <button type="button" className="stat-day-arrow" aria-label="Periodo anterior" onClick={() => shift(-1)}>
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
+      </button>
+      <button type="button" className="stat-day-btn" onClick={openCalendar} aria-label="Elegir fecha en el calendario">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
           <path d="M3.5 10h17M8 3v4M16 3v4" />
         </svg>
-        <span>{day ? dayTitle(day) : 'Todo el historial'}</span>
+        <span>{periodTitle(period, range)}</span>
         <input
           ref={inputRef}
           type="date"
@@ -320,27 +424,71 @@ function DayPicker({ day, onChange }) {
           aria-hidden="true"
         />
       </button>
-      {day && day < today && (
-        <button type="button" className="stat-day-arrow" aria-label="Día siguiente" onClick={() => shift(1)}>
+      {canGoForward && (
+        <button type="button" className="stat-day-arrow" aria-label="Periodo siguiente" onClick={() => shift(1)}>
           <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
         </button>
       )}
-      <button type="button" className="stat-day-chip" onClick={() => onChange(day ? '' : today)}>
-        {day ? 'Ver todo' : 'Ver hoy'}
-      </button>
+      {day !== today && (
+        <button type="button" className="stat-day-chip" onClick={() => onChange(today)}>
+          {{ dia: 'Ir a hoy', semana: 'Ir a esta semana', mes: 'Ir a este mes' }[period]}
+        </button>
+      )}
     </div>
   );
 }
 
-function KpiCard({ label, value, highlight, small }) {
+function KpiCard({ label, value, format, delta, highlight, small }) {
+  const show = format || ((v) => v);
   return (
     <motion.div
       className={`kpi-card${highlight ? ' highlight' : ''}${small ? ' small' : ''}`}
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
     >
       <span className="kpi-label">{label}</span>
-      <span className="kpi-value">{value}</span>
+      <span className="kpi-value">{show(value)}</span>
+      {delta && <DeltaLine current={value} prev={delta.prev} format={show} />}
     </motion.div>
+  );
+}
+
+function DeltaLine({ current, prev, format }) {
+  let dir = 'flat';
+  let text = '= igual';
+  if (prev === 0 && current > 0) { dir = 'up'; text = '▲ nuevo'; }
+  else if (prev > 0) {
+    const pct = Math.round(((current - prev) / prev) * 100);
+    if (pct > 0) { dir = 'up'; text = `▲ ${pct}%`; }
+    else if (pct < 0) { dir = 'down'; text = `▼ ${Math.abs(pct)}%`; }
+  }
+  return (
+    <span className="kpi-delta">
+      <span className={`kpi-delta-pct ${dir}`}>{text}</span>
+      <span className="kpi-delta-prev">antes {format(prev)}</span>
+    </span>
+  );
+}
+
+function CompareChart({ data, currentLabel, prevLabel, formatValue, dense }) {
+  const max = Math.max(1, ...data.map((d) => Math.max(d.value, d.prev)));
+  return (
+    <>
+      <div className="compare-legend">
+        <span><i className="current" />{currentLabel}</span>
+        <span><i className="prev" />{prevLabel}</span>
+      </div>
+      <div className={`mini-chart compare-chart${dense ? ' dense' : ''}`}>
+        {data.map((d, i) => (
+          <div className="mini-chart-col" key={i} title={`${currentLabel}: ${formatValue(d.value)} · ${prevLabel}: ${formatValue(d.prev)}`}>
+            <div className="mini-chart-bar-wrap compare-pair">
+              <motion.div className="compare-bar prev" initial={{ height: 0 }} animate={{ height: `${(d.prev / max) * 100}%` }} transition={{ duration: 0.5, delay: i * 0.015 }} />
+              <motion.div className="compare-bar current" initial={{ height: 0 }} animate={{ height: `${(d.value / max) * 100}%` }} transition={{ duration: 0.5, delay: i * 0.015 }} />
+            </div>
+            <span className="mini-chart-label">{d.label}</span>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
