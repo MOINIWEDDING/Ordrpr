@@ -1,0 +1,65 @@
+# Aplica las migraciones nuevas de supabase/migrations a la base de datos de cada restaurante.
+#
+# Configuración (GitHub → Settings → Secrets and variables → Actions):
+#   Variables:
+#     RESTAURANTES        Lista JSON con el código de cada restaurante, p. ej. ["PRINCIPAL","CASA_SABOR"]
+#     RESTAURANTE_PRUEBA  (opcional) Código del restaurante de prueba: se actualiza primero y,
+#                         si falla, no se toca a ningún otro.
+#   Secretos:
+#     DB_URL_<CÓDIGO>     Cadena de conexión "Session pooler" de su Supabase, p. ej. DB_URL_PRINCIPAL
+#
+# Ver docs/restaurantes.md para el proceso completo.
+
+name: Actualizar bases de datos
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+# Nunca dos actualizaciones a la vez: la segunda espera a que termine la primera.
+concurrency:
+  group: migraciones
+  cancel-in-progress: false
+
+jobs:
+  prueba:
+    name: Restaurante de prueba
+    if: vars.RESTAURANTE_PRUEBA != ''
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: ${{ secrets[format('DB_URL_{0}', vars.RESTAURANTE_PRUEBA)] }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Aplicar migraciones
+        run: |
+          if [ -z "$DB_URL" ]; then echo "Falta el secreto DB_URL_${{ vars.RESTAURANTE_PRUEBA }}"; exit 1; fi
+          supabase db push --db-url "$DB_URL" --yes
+
+  todos:
+    name: ${{ matrix.restaurante }}
+    needs: prueba
+    # corre si la prueba salió bien o si no hay restaurante de prueba configurado
+    if: always() && vars.RESTAURANTES != '' && (needs.prueba.result == 'success' || needs.prueba.result == 'skipped')
+    runs-on: ubuntu-latest
+    strategy:
+      # si un restaurante falla, los demás se actualizan igual
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        restaurante: ${{ fromJSON(vars.RESTAURANTES) }}
+    env:
+      DB_URL: ${{ secrets[format('DB_URL_{0}', matrix.restaurante)] }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Aplicar migraciones
+        run: |
+          if [ -z "$DB_URL" ]; then echo "Falta el secreto DB_URL_${{ matrix.restaurante }}"; exit 1; fi
+          supabase db push --db-url "$DB_URL" --yes
