@@ -1,5 +1,4 @@
 -- Estadísticas por día
--- Ejecuta este archivo una vez en Supabase → SQL Editor.
 --
 -- El panel de estadísticas ahora filtra pedidos y gift cards por día (columna created_at)
 -- y suma lo vendido en tarjeta y en efectivo (columna payment_method). Esas columnas ya
