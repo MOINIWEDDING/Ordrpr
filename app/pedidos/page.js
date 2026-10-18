@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
@@ -8,7 +8,6 @@ import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
 import BrandLogo from '@/components/BrandLogo';
-import { useToast } from '@/context/ToastContext';
 import { getGuestOrderIds, keepGuestOrders } from '@/lib/guestOrders';
 
 const ORDER_STATUS_LABELS = {
@@ -44,27 +43,16 @@ export default function PedidosPage() {
 // Quien no ha iniciado sesión ve aquí los pedidos que hizo como invitado, y solo mientras no se
 // hayan entregado (al entregarse desaparecen). Si no tiene ninguno activo, ve la pantalla de entrada.
 function GuestOrders() {
-  const { showToast } = useToast();
   const [state, setState] = useState({ loading: true, orders: [] });
-  const seen = useRef({});
 
   const load = useCallback(async () => {
     const ids = getGuestOrderIds();
     if (!ids.length || !BARRO_CONFIGURED) { setState({ loading: false, orders: [] }); return; }
     const { data, error } = await sb.rpc('guest_orders', { p_ids: ids });
     if (error || !Array.isArray(data)) { setState((p) => ({ ...p, loading: false })); return; }
-    // los que estaban y ya no vienen se entregaron
-    const now = new Set(data.map((o) => o.id));
-    Object.keys(seen.current).forEach((id) => {
-      if (!now.has(id)) {
-        showToast(`Tu pedido de ${seen.current[id]} fue entregado`);
-        delete seen.current[id];
-      }
-    });
-    data.forEach((o) => { seen.current[o.id] = o.table_number; });
     keepGuestOrders(data.map((o) => o.id));
     setState({ loading: false, orders: data });
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     load();
