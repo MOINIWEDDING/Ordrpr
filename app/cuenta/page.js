@@ -18,6 +18,7 @@ import AvatarLibraryManager from '@/components/AvatarLibraryManager';
 import TableManager from '@/components/TableManager';
 import EarlyBirdManager from '@/components/EarlyBirdManager';
 import TaxSettingsManager from '@/components/TaxSettingsManager';
+import OrderMessagesManager from '@/components/OrderMessagesManager';
 import Reveal from '@/components/Reveal';
 import AuthGate from '@/components/AuthGate';
 import BranchSwitcher from '@/components/BranchSwitcher';
@@ -322,6 +323,12 @@ function StaffView({ profile, logout }) {
           <div className="home-section-top" style={{ marginTop: 34 }}><h3>Impuestos y porcientos</h3></div>
           <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Se suman automáticamente al precio de los productos cuando alguien paga desde la app.</p>
           <TaxSettingsManager />
+        </Reveal>
+
+        <Reveal delay={0.29}>
+          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Avisos de pedidos</h3></div>
+          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Escribe el mensaje que le sale al cliente cuando cambias el estado de su pedido en Órdenes.</p>
+          <OrderMessagesManager />
         </Reveal>
 
         <Reveal delay={0.3}>
