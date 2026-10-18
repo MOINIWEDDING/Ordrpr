@@ -10,7 +10,7 @@ import { money } from '@/hooks/useMenuItems';
 import BrandLogo from '@/components/BrandLogo';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
-import { sendOrderPush } from '@/lib/push';
+import { sendOrderPush, orderPushNotice } from '@/lib/push';
 
 const STATUS_LABELS = {
   nueva: 'Nueva',
@@ -72,6 +72,7 @@ export default function OrdenesPage() {
 
 function OrdersList() {
   const { branch } = useBranch();
+  const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -99,7 +100,10 @@ function OrdersList() {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
     if (BARRO_CONFIGURED) {
       const { error } = await sb.from('orders').update({ status }).eq('id', id);
-      if (!error && status !== 'nueva') sendOrderPush(id); // aviso al teléfono del cliente (si lo activó)
+      if (!error && status !== 'nueva') {
+        // aviso al teléfono del cliente (si lo activó); el dueño ve qué pasó
+        sendOrderPush(id).then((res) => { const note = orderPushNotice(res); if (note) showToast(note); });
+      }
     }
   }
 
