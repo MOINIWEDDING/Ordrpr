@@ -43,7 +43,18 @@ async function sendToOneSignal({ appId, apiKey, externalId, heading, text, icon,
   const j = await res.json().catch(() => ({}));
   const errors = Array.isArray(j.errors) ? j.errors.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))) : (j.errors ? [JSON.stringify(j.errors)] : []);
   if (!res.ok && !errors.length) errors.push(`OneSignal respondió ${res.status}`);
-  return { sent: j.id ? 1 : 0, errors };
+  return { sent: j.id ? 1 : 0, id: j.id || '', errors };
+}
+
+// Pregunta a OneSignal qué pasó con un aviso ya enviado (cuántos aparatos lo recibieron, cuántos fallaron).
+async function deliveryStats({ appId, apiKey, id }) {
+  try {
+    const base = ONESIGNAL_URL.split('?')[0];
+    const res = await fetch(`${base}/${id}?app_id=${encodeURIComponent(appId)}`, { headers: { Authorization: `Key ${apiKey}` } });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return { successful: j.successful || 0, failed: j.failed || 0, errored: j.errored || 0, remaining: j.remaining || 0 };
+  } catch (e) { return null; }
 }
 
 // El local llama aquí después de cambiar el estado de un pedido. Se usa la sesión de quien llama
@@ -82,7 +93,16 @@ export async function POST(req) {
       heading: brand || 'Prueba', text: 'Así te llegarán los avisos de pedidos.',
       icon: st && st.logo_url, url: `${origin}/cuenta`, topic: 'prueba', extra: { test: true },
     });
-    return json({ test: true, ...r });
+    let stats = null;
+    if (r.id) {
+      // OneSignal tarda un par de segundos en entregar: se consulta el resultado para saber si llegó a algún aparato
+      for (let i = 0; i < 3; i += 1) {
+        await new Promise((ok) => setTimeout(ok, 2000));
+        stats = await deliveryStats({ appId, apiKey, id: r.id });
+        if (stats && (stats.successful || stats.failed || stats.errored)) break;
+      }
+    }
+    return json({ test: true, ...r, stats });
   }
 
   const { data: rows, error } = await db.rpc('push_target', { p_order: orderId });
