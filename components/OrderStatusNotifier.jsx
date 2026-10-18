@@ -7,6 +7,7 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { orderNotice } from '@/lib/orderMessages';
 import { getGuestOrderIds, keepGuestOrders } from '@/lib/guestOrders';
+import { syncPush } from '@/lib/push';
 
 const GUEST_POLL_MS = 8000;
 
@@ -30,6 +31,9 @@ export default function OrderStatusNotifier() {
     if (n.sound) playNotificationSound();
     toastRef.current(n.text);
   }
+
+  // Si ya activó las notificaciones, deja este aparato ligado a la cuenta con la que está (o a ninguna)
+  useEffect(() => { if (!isStaff && !isComensal) syncPush(); }, [profile, isStaff, isComensal]);
 
   // Cliente con cuenta: tiempo real
   useEffect(() => {

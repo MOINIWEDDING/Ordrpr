@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { playNotificationSound } from '@/lib/notificationSound';
+import { PUSH_CONFIGURED } from '@/lib/push';
 import {
   ORDER_MESSAGE_STEPS, DEFAULT_ORDER_MESSAGES, ORDER_MESSAGE_MAX, ORDER_PLACEHOLDERS,
   mergeOrderMessages, fillOrderMessage,
@@ -34,7 +35,7 @@ export default function OrderMessagesManager() {
   async function handleSave() {
     setBusy(true);
     setMsg({ text: '', type: '' });
-    const clean = { sound: draft.sound };
+    const clean = { sound: draft.sound, push: draft.push };
     ORDER_MESSAGE_STEPS.forEach(({ status }) => {
       clean[status] = { on: draft[status].on, text: draft[status].text.trim().slice(0, ORDER_MESSAGE_MAX) || DEFAULT_ORDER_MESSAGES[status].text };
     });
@@ -91,8 +92,18 @@ export default function OrderMessagesManager() {
         <label htmlFor="om-sound" style={{ margin: 0, textTransform: 'none', fontSize: 13, letterSpacing: 0, fontWeight: 500, color: 'var(--ink)' }}>Sonido al llegar el aviso</label>
       </div>
 
+      <div className="field" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <input id="om-push" type="checkbox" style={{ width: 'auto', marginTop: 3 }} checked={draft.push} onChange={(e) => setDraft((d) => ({ ...d, push: e.target.checked }))} />
+        <label htmlFor="om-push" style={{ margin: 0, textTransform: 'none', fontSize: 13, letterSpacing: 0, fontWeight: 500, color: 'var(--ink)' }}>
+          Enviar también como notificación al teléfono
+          <span className="muted" style={{ display: 'block', fontSize: 12.5, fontWeight: 400, marginTop: 3 }}>
+            Le llega aunque tenga la página cerrada, si el cliente activó las notificaciones en Pedidos. {PUSH_CONFIGURED ? 'Es el mismo texto de arriba.' : 'Aún no está conectado: faltan las llaves VAPID en Vercel (mira la guía).'}
+          </span>
+        </label>
+      </div>
+
       <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
-        Los avisos le salen al cliente (con o sin cuenta) mientras tiene la página abierta. Los invitados los reciben en el mismo navegador donde hicieron el pedido.
+        Los avisos le salen al cliente (con o sin cuenta) dentro de la página. Los invitados los reciben en el mismo navegador donde hicieron el pedido.
       </p>
       {msg.text && <div className={`form-msg show ${msg.type}`}>{msg.text}</div>}
       <button type="button" className="btn btn-amber" disabled={busy} style={{ marginTop: 14 }} onClick={handleSave}>{busy ? 'Guardando…' : 'Guardar avisos'}</button>

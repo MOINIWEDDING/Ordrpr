@@ -11,6 +11,7 @@ import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder } from '@/lib/guestOrders';
+import { syncPush } from '@/lib/push';
 import EarlyBirdResult from './EarlyBirdResult';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
@@ -137,7 +138,7 @@ export default function CartDrawer() {
     if (BARRO_CONFIGURED) {
       const { error } = await sb.from('orders').insert(payload);
       if (error) { setPlaceError('No se pudo enviar el pedido: ' + error.message); setPlacing(false); return; }
-      if (orderId) rememberGuestOrder(orderId);
+      if (orderId) { rememberGuestOrder(orderId); syncPush(orderId); } // liga el pedido a las notificaciones de este aparato
     }
 
     if (ebOutcome === 'winner' || ebOutcome === 'in_window_no_win') {
