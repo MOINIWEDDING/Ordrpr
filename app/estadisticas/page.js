@@ -35,6 +35,7 @@ const PERIODS = [
   { id: 'dia', label: 'Día' },
   { id: 'semana', label: 'Semana' },
   { id: 'mes', label: 'Mes' },
+  { id: 'custom', label: 'A vs B' },
   { id: 'todo', label: 'Todo' },
 ];
 
@@ -44,13 +45,23 @@ function periodRange(period, key) {
   const d = startOfDay(key);
   if (period === 'semana') {
     const start = addDays(d, -((d.getDay() + 6) % 7));
-    return { start, end: addDays(start, 7), prevStart: addDays(start, -7) };
+    return { start, end: addDays(start, 7), prevStart: addDays(start, -7), prevEnd: start };
   }
   if (period === 'mes') {
     const start = addMonths(d, 0);
-    return { start, end: addMonths(d, 1), prevStart: addMonths(d, -1) };
+    return { start, end: addMonths(d, 1), prevStart: addMonths(d, -1), prevEnd: start };
   }
-  return { start: d, end: addDays(d, 1), prevStart: addDays(d, -1) };
+  return { start: d, end: addDays(d, 1), prevStart: addDays(d, -1), prevEnd: d };
+}
+
+// Línea de tiempo libre: { from, to } en 'AAAA-MM-DD', ambos días incluidos.
+function lineRange(line) {
+  return { start: startOfDay(line.from), end: addDays(startOfDay(line.to), 1) };
+}
+const lineDays = (r) => Math.round((r.end - r.start) / 86400000);
+function lineTitle(line) {
+  if (line.from === line.to) return dayTitle(line.from);
+  return `${shortDate(startOfDay(line.from))} – ${shortDate(startOfDay(line.to))}`;
 }
 
 function periodTitle(period, range) {
@@ -102,7 +113,15 @@ export default function EstadisticasPage() {
   const [loadError, setLoadError] = useState('');
   const [period, setPeriod] = useState('dia'); // 'dia' | 'semana' | 'mes' | 'todo'
   const [day, setDay] = useState(() => dayKey(new Date())); // cualquier día dentro del periodo elegido
-  const range = useMemo(() => (period === 'todo' ? null : periodRange(period, day)), [period, day]);
+  const [lineA, setLineA] = useState(() => ({ from: dayKey(addDays(new Date(), -6)), to: dayKey(new Date()) }));
+  const [lineB, setLineB] = useState(() => ({ from: dayKey(addDays(new Date(), -13)), to: dayKey(addDays(new Date(), -7)) }));
+  const range = useMemo(() => {
+    if (period === 'todo') return null;
+    if (period !== 'custom') return periodRange(period, day);
+    const a = lineRange(lineA);
+    const b = lineRange(lineB);
+    return { start: a.start, end: a.end, prevStart: b.start, prevEnd: b.end };
+  }, [period, day, lineA, lineB]);
 
   useEffect(() => {
     if (profile && !isStaff) router.push('/');
@@ -114,14 +133,23 @@ export default function EstadisticasPage() {
       if (!BARRO_CONFIGURED) { setLoading(false); return; }
       setLoading(true);
       try {
-        let ordersQuery = sb.from('orders').select('*');
+        const ordersBetween = (from, to) => {
+          let q = sb.from('orders').select('*');
+          if (branch) q = q.eq('branch', branch);
+          if (from) q = q.gte('created_at', from.toISOString()).lt('created_at', to.toISOString());
+          return q;
+        };
         let giftQuery = sb.from('gift_cards').select('*');
-        if (branch) ordersQuery = ordersQuery.eq('branch', branch);
-        if (range) {
-          // Se traen el periodo elegido y el anterior completo, para poder compararlos.
-          ordersQuery = ordersQuery.gte('created_at', range.prevStart.toISOString()).lt('created_at', range.end.toISOString());
-          giftQuery = giftQuery.gte('created_at', range.start.toISOString()).lt('created_at', range.end.toISOString());
-        }
+        if (range) giftQuery = giftQuery.gte('created_at', range.start.toISOString()).lt('created_at', range.end.toISOString());
+        // Se traen las dos líneas de tiempo por separado (pueden estar muy lejos una de otra)
+        // y se juntan sin repetir los pedidos que caigan en ambas.
+        const ordersQuery = range
+          ? Promise.all([ordersBetween(range.start, range.end), ordersBetween(range.prevStart, range.prevEnd)]).then(([a, b]) => {
+            if (a.error || b.error) return { error: a.error || b.error };
+            const seen = new Set();
+            return { data: [...(a.data || []), ...(b.data || [])].filter((o) => !seen.has(o.id) && seen.add(o.id)) };
+          })
+          : ordersBetween();
         const [ordersRes, profilesRes, itemsRes, giftRes] = await Promise.all([
           ordersQuery,
           sb.from('profiles').select('*').eq('role', 'cliente'),
@@ -147,13 +175,14 @@ export default function EstadisticasPage() {
     const between = (list, from, to) => list.filter((o) => { const t = new Date(o.created_at); return t >= from && t < to; });
     const costById = {}; menuItems.forEach((m) => { costById[m.id] = Number(m.cost || 0); });
     const orders = range ? between(rawOrders, range.start, range.end) : rawOrders;
-    const prevOrders = range ? between(rawOrders, range.prevStart, range.start) : [];
+    const prevOrders = range ? between(rawOrders, range.prevStart, range.prevEnd) : [];
 
     // Si el periodo está en curso (hoy, esta semana, este mes), se compara contra el anterior
     // solo hasta el mismo punto: hoy a las 3 p. m. contra ayer a las 3 p. m., no contra ayer completo.
     const now = new Date();
-    const inProgress = Boolean(range) && now >= range.start && now < range.end;
-    const prevCutoff = inProgress ? new Date(Math.min(range.prevStart.getTime() + (now - range.start), range.start.getTime())) : range && range.start;
+    // (con "A vs B" se compara exactamente lo que se eligió).
+    const inProgress = Boolean(range) && period !== 'custom' && now >= range.start && now < range.end;
+    const prevCutoff = inProgress ? new Date(Math.min(range.prevStart.getTime() + (now - range.start), range.prevEnd.getTime())) : range && range.prevEnd;
     const current = summarize(orders, costById);
     const previous = range ? summarize(between(prevOrders, range.prevStart, prevCutoff), costById) : null;
 
@@ -220,18 +249,22 @@ export default function EstadisticasPage() {
         dayRevenue.push({ label: DAY_LABELS[d.getDay()], value: sumSubtotal(between(orders, d, addDays(d, 1))) });
       }
     } else {
+      // con "A vs B" se alinea día 1 con día 1; si ambas líneas son de un solo día, por hora
+      const byHour = period === 'dia' || (period === 'custom' && lineDays(range) === 1 && lineDays({ start: range.prevStart, end: range.prevEnd }) === 1);
+      const byIndex = period === 'semana' || (period === 'custom' && !byHour);
       const slotOf = (o, start) => {
         const t = new Date(o.created_at);
-        if (period === 'dia') return t.getHours();
-        if (period === 'semana') return Math.round((startOfDay(dayKey(t)) - start) / 86400000); // round: un día de cambio de horario dura 23 o 25 h
+        if (byHour) return t.getHours();
+        if (byIndex) return Math.round((startOfDay(dayKey(t)) - start) / 86400000); // round: un día de cambio de horario dura 23 o 25 h
         return t.getDate() - 1;
       };
-      const slots = period === 'dia' ? 24 : period === 'semana' ? 7
+      const slots = byHour ? 24 : period === 'semana' ? 7
+        : period === 'custom' ? Math.max(lineDays(range), lineDays({ start: range.prevStart, end: range.prevEnd }))
         : Math.max(addDays(range.end, -1).getDate(), addDays(range.start, -1).getDate());
       compareChart = Array.from({ length: slots }, (_, i) => ({
-        label: period === 'dia' ? (i % 3 === 0 ? `${i}h` : '')
+        label: byHour ? (i % 3 === 0 ? `${i}h` : '')
           : period === 'semana' ? DAY_LABELS[(i + 1) % 7]
-          : (i === 0 || (i + 1) % 5 === 0 ? String(i + 1) : ''),
+          : (slots <= 10 || i === 0 || (i + 1) % 5 === 0 ? String(i + 1) : ''),
         value: 0,
         prev: 0,
       }));
@@ -255,12 +288,13 @@ export default function EstadisticasPage() {
     };
   }, [rawOrders, profiles, menuItems, giftCards, range, period]);
 
-  const compareLabel = !range ? '' : {
+  const compareLabel = !range ? '' : period === 'custom' ? `la línea B (${lineTitle(lineB).toLowerCase()})` : {
     dia: stats.inProgress ? 'ayer a esta hora' : 'el día anterior',
     semana: stats.inProgress ? 'la semana pasada a estas alturas' : 'la semana anterior',
     mes: stats.inProgress ? 'el mes pasado a estas alturas' : 'el mes anterior',
   }[period];
-  const prevName = { dia: 'Día anterior', semana: 'Semana anterior', mes: 'Mes anterior' }[period];
+  const prevName = { dia: 'Día anterior', semana: 'Semana anterior', mes: 'Mes anterior', custom: `B · ${lineTitle(lineB)}` }[period];
+  const currentName = !range ? '' : period === 'custom' ? `A · ${lineTitle(lineA)}` : periodTitle(period, range);
   const delta = (key) => (stats.previous ? { prev: stats.previous[key] } : null);
 
   if (!profile || !isStaff) return null;
@@ -275,7 +309,9 @@ export default function EstadisticasPage() {
         </div>
 
         <PeriodTabs period={period} onChange={setPeriod} />
-        <DayPicker period={period} day={day} range={range} onChange={setDay} />
+        {period === 'custom'
+          ? <LinePickers lineA={lineA} lineB={lineB} onChangeA={setLineA} onChangeB={setLineB} />
+          : <DayPicker period={period} day={day} range={range} onChange={setDay} />}
         {range && <p className="stat-compare-note">Cada número se compara con {compareLabel}.</p>}
 
         {loading ? (
@@ -283,7 +319,7 @@ export default function EstadisticasPage() {
         ) : loadError ? (
           <div className="form-msg show error">No se pudieron cargar las estadísticas: {loadError}</div>
         ) : stats.totalOrders === 0 && !stats.prevCount ? (
-          <p className="empty-note">{range ? `No hubo pedidos ${{ dia: 'este día', semana: 'esta semana', mes: 'este mes' }[period]} ni ${{ dia: 'el anterior', semana: 'la anterior', mes: 'el anterior' }[period]}.` : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
+          <p className="empty-note">{period === 'custom' ? 'No hubo pedidos en ninguna de las dos líneas de tiempo.' : range ? `No hubo pedidos ${{ dia: 'este día', semana: 'esta semana', mes: 'este mes' }[period]} ni ${{ dia: 'el anterior', semana: 'la anterior', mes: 'el anterior' }[period]}.` : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
         ) : (
           <>
             <div className="kpi-grid">
@@ -297,8 +333,9 @@ export default function EstadisticasPage() {
             </div>
 
             {range ? (
-              <StatSection title={`Ventas: ${periodTitle(period, range).toLowerCase()} vs. ${prevName.toLowerCase()}`}>
-                <CompareChart data={stats.compareChart} currentLabel={periodTitle(period, range)} prevLabel={prevName} formatValue={(v) => money(Math.round(v))} dense={period !== 'semana'} />
+              <StatSection title={period === 'custom' ? 'Ventas: línea A vs. línea B' : `Ventas: ${currentName.toLowerCase()} vs. ${prevName.toLowerCase()}`}>
+                <CompareChart data={stats.compareChart} currentLabel={currentName} prevLabel={prevName} formatValue={(v) => money(Math.round(v))} dense={stats.compareChart.length > 10} />
+                {period === 'custom' && stats.compareChart.length !== 24 && <p className="stat-compare-note" style={{ margin: '10px 0 0' }}>Cada barra es un día: el 1 es el primer día de cada línea.</p>}
               </StatSection>
             ) : (
               <StatSection title="Ventas de los últimos 7 días">
@@ -378,6 +415,40 @@ function PeriodTabs({ period, onChange }) {
           {p.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// Dos líneas de tiempo que elige el dueño: A (la que se mide) y B (contra la que se compara).
+function LinePickers({ lineA, lineB, onChangeA, onChangeB }) {
+  return (
+    <div className="stat-lines">
+      <LinePicker name="A" tone="current" line={lineA} onChange={onChangeA} />
+      <LinePicker name="B" tone="prev" line={lineB} onChange={onChangeB} />
+    </div>
+  );
+}
+
+function LinePicker({ name, tone, line, onChange }) {
+  const today = dayKey(new Date());
+  // si "desde" queda después de "hasta", se acomodan solas para no dejar una línea vacía
+  function set(field, value) {
+    if (!value) return;
+    const next = { ...line, [field]: value };
+    if (next.from > next.to) { if (field === 'from') next.to = value; else next.from = value; }
+    onChange(next);
+  }
+  return (
+    <div className="stat-line">
+      <span className={`stat-line-tag ${tone}`}>{name}</span>
+      <label>
+        <span>Desde</span>
+        <input type="date" value={line.from} max={today} onChange={(e) => set('from', e.target.value)} />
+      </label>
+      <label>
+        <span>Hasta</span>
+        <input type="date" value={line.to} max={today} onChange={(e) => set('to', e.target.value)} />
+      </label>
     </div>
   );
 }
