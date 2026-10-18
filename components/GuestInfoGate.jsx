@@ -64,7 +64,7 @@ export default function GuestInfoGate({ onDone }) {
             <h2 className="branch-gate-title">¿Cuántos años tienes?</h2>
             <p className="branch-gate-sub">Solo para completar tu información.</p>
 
-            <form onSubmit={submitAge} className="branch-gate-cards" style={{ maxWidth: 320, margin: '0 auto' }}>
+            <form onSubmit={submitAge} className="branch-gate-age-form">
               <GlowCard as="div" hue={30} className="branch-gate-age-card">
                 <input
                   type="number"
@@ -77,7 +77,7 @@ export default function GuestInfoGate({ onDone }) {
                   autoFocus
                 />
               </GlowCard>
-              {ageError && <div className="form-msg show error" style={{ color: '#fff' }}>{ageError}</div>}
+              {ageError && <div className="form-msg show error">{ageError}</div>}
               <button type="submit" className="btn btn-amber btn-block">Continuar</button>
             </form>
           </motion.div>

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -11,16 +11,38 @@ const GENDER_LABELS = { femenino: 'Femenino', masculino: 'Masculino', prefiero_n
 const PAY_LABELS = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', gift_card: 'Tarjeta de regalo' };
 const DAY_LABELS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
+// Los días se manejan como 'AAAA-MM-DD' en la hora del aparato del dueño,
+// para que "hoy" sea el mismo día que ve en su teléfono.
+function dayKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function startOfDay(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function dayTitle(key) {
+  if (key === dayKey(new Date())) return 'Hoy';
+  if (key === dayKey(addDays(new Date(), -1))) return 'Ayer';
+  const label = startOfDay(key).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export default function EstadisticasPage() {
   const { profile, isStaff } = useAuth();
   const { branch, branchInfo } = useBranch();
   const router = useRouter();
-  const [orders, setOrders] = useState([]);
+  const [rawOrders, setOrders] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [giftCards, setGiftCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [day, setDay] = useState(() => dayKey(new Date())); // '' = todo el historial
 
   useEffect(() => {
     if (profile && !isStaff) router.push('/');
@@ -30,14 +52,24 @@ export default function EstadisticasPage() {
     async function load() {
       setLoadError('');
       if (!BARRO_CONFIGURED) { setLoading(false); return; }
+      setLoading(true);
       try {
         let ordersQuery = sb.from('orders').select('*');
+        let giftQuery = sb.from('gift_cards').select('*');
         if (branch) ordersQuery = ordersQuery.eq('branch', branch);
+        if (day) {
+          // Se traen los 7 días que terminan en el día elegido: el día en sí para los números
+          // y la semana completa para la gráfica de ventas.
+          const start = startOfDay(day);
+          const end = addDays(start, 1);
+          ordersQuery = ordersQuery.gte('created_at', addDays(start, -6).toISOString()).lt('created_at', end.toISOString());
+          giftQuery = giftQuery.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+        }
         const [ordersRes, profilesRes, itemsRes, giftRes] = await Promise.all([
           ordersQuery,
           sb.from('profiles').select('*').eq('role', 'cliente'),
           sb.from('menu_items').select('id, name, category, cost, price'),
-          sb.from('gift_cards').select('*'),
+          giftQuery,
         ]);
         const firstError = ordersRes.error || profilesRes.error || itemsRes.error || giftRes.error;
         if (firstError) throw firstError;
@@ -52,12 +84,23 @@ export default function EstadisticasPage() {
       }
     }
     load();
-  }, [branch]);
+  }, [branch, day]);
 
   const stats = useMemo(() => {
+    const weekOrders = rawOrders;
+    let orders = weekOrders;
+    if (day) {
+      const start = startOfDay(day);
+      const end = addDays(start, 1);
+      orders = weekOrders.filter((o) => { const t = new Date(o.created_at); return t >= start && t < end; });
+    }
+
     const totalRevenue = orders.reduce((s, o) => s + Number(o.subtotal || 0), 0);
     const totalOrders = orders.length;
     const avgTicket = totalOrders ? totalRevenue / totalOrders : 0;
+    const revenueBy = (method) => orders.filter((o) => o.payment_method === method).reduce((s, o) => s + Number(o.subtotal || 0), 0);
+    const cardRevenue = revenueBy('tarjeta');
+    const cashRevenue = revenueBy('efectivo');
 
     const itemMap = {};
     orders.forEach((o) => (o.items || []).forEach((it) => {
@@ -110,10 +153,11 @@ export default function EstadisticasPage() {
     orders.forEach((o) => { const h = new Date(o.created_at).getHours(); hourCounts[h]++; });
 
     const days = [];
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0); days.push(d); }
+    const lastDay = day ? startOfDay(day) : startOfDay(dayKey(new Date()));
+    for (let i = 6; i >= 0; i--) days.push(addDays(lastDay, -i));
     const dayRevenue = days.map((d) => {
-      const next = new Date(d); next.setDate(next.getDate() + 1);
-      const revenue = orders
+      const next = addDays(d, 1);
+      const revenue = weekOrders
         .filter((o) => { const t = new Date(o.created_at); return t >= d && t < next; })
         .reduce((s, o) => s + Number(o.subtotal || 0), 0);
       return { label: DAY_LABELS[d.getDay()], value: revenue };
@@ -131,12 +175,12 @@ export default function EstadisticasPage() {
     const profit = totalRevenue - totalCost;
 
     return {
-      totalRevenue, totalOrders, avgTicket, bestSellers, worstSellers, categories, payments,
+      totalRevenue, totalOrders, avgTicket, cardRevenue, cashRevenue, bestSellers, worstSellers, categories, payments,
       genders, ages, accountOrders, guestOrders, hourCounts, dayRevenue,
       gcSoldCount, gcSoldAmount, gcRedeemedCount, gcActiveBalance,
       hasCostData, profit, totalClients: profiles.length,
     };
-  }, [orders, profiles, menuItems, giftCards]);
+  }, [rawOrders, profiles, menuItems, giftCards, day]);
 
   if (!profile || !isStaff) return null;
 
@@ -149,23 +193,27 @@ export default function EstadisticasPage() {
           <p>{branchInfo ? `Ventas y pedidos de ${branchInfo.full}. Los clientes y gift cards son del negocio completo.` : 'Un vistazo a cómo le está yendo al local.'}</p>
         </div>
 
+        <DayPicker day={day} onChange={setDay} />
+
         {loading ? (
           <p className="empty-note">Cargando estadísticas…</p>
         ) : loadError ? (
           <div className="form-msg show error">No se pudieron cargar las estadísticas: {loadError}</div>
         ) : stats.totalOrders === 0 ? (
-          <p className="empty-note">Todavía no hay suficientes pedidos para mostrar estadísticas.</p>
+          <p className="empty-note">{day ? 'No hubo pedidos este día.' : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
         ) : (
           <>
             <div className="kpi-grid">
               <KpiCard label="Ventas totales" value={money(stats.totalRevenue)} />
-              <KpiCard label="Pedidos" value={stats.totalOrders} />
+              <KpiCard label={day ? 'Pedidos del día' : 'Pedidos'} value={stats.totalOrders} />
+              <KpiCard label="Vendido en tarjeta" value={money(stats.cardRevenue)} />
+              <KpiCard label="Vendido en efectivo" value={money(stats.cashRevenue)} />
               <KpiCard label="Ticket promedio" value={money(Math.round(stats.avgTicket))} />
               <KpiCard label="Clientes registrados" value={stats.totalClients} />
               {stats.hasCostData && <KpiCard label="Ganancia estimada" value={money(Math.round(stats.profit))} highlight />}
             </div>
 
-            <StatSection title="Ventas de los últimos 7 días">
+            <StatSection title={day ? `Ventas de los 7 días hasta ${dayTitle(day).toLowerCase()}` : 'Ventas de los últimos 7 días'}>
               <MiniBarChart data={stats.dayRevenue} formatValue={(v) => money(Math.round(v))} />
             </StatSection>
 
@@ -230,6 +278,57 @@ export default function EstadisticasPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function DayPicker({ day, onChange }) {
+  const today = dayKey(new Date());
+  const inputRef = useRef(null);
+
+  function openCalendar() {
+    const input = inputRef.current;
+    if (!input) return;
+    try { input.showPicker(); } catch (e) { input.focus(); input.click(); }
+  }
+
+  function shift(n) {
+    const next = dayKey(addDays(startOfDay(day || today), n));
+    if (next <= today) onChange(next);
+  }
+
+  return (
+    <div className="stat-day-picker">
+      {day && (
+        <button type="button" className="stat-day-arrow" aria-label="Día anterior" onClick={() => shift(-1)}>
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+      )}
+      <button type="button" className="stat-day-btn" onClick={openCalendar} aria-label="Elegir día en el calendario">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+          <path d="M3.5 10h17M8 3v4M16 3v4" />
+        </svg>
+        <span>{day ? dayTitle(day) : 'Todo el historial'}</span>
+        <input
+          ref={inputRef}
+          type="date"
+          className="stat-day-input"
+          value={day}
+          max={today}
+          onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </button>
+      {day && day < today && (
+        <button type="button" className="stat-day-arrow" aria-label="Día siguiente" onClick={() => shift(1)}>
+          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+        </button>
+      )}
+      <button type="button" className="stat-day-chip" onClick={() => onChange(day ? '' : today)}>
+        {day ? 'Ver todo' : 'Ver hoy'}
+      </button>
+    </div>
   );
 }
 
