@@ -28,9 +28,6 @@ import ThemeEditor from '@/components/ThemeEditor';
 import BranchesManager from '@/components/BranchesManager';
 import TeamManager from '@/components/TeamManager';
 
-
-
-
 export default function CuentaPage() {
   const { profile, isStaff, isComensal, logout } = useAuth();
 
@@ -40,29 +37,53 @@ export default function CuentaPage() {
   return <ClientView profile={profile} logout={logout} />;
 }
 
+// Encabezado común: quién eres, con qué rol y en qué sucursal estás.
+function AccountHeader({ profile, role, onChangeAvatar }) {
+  return (
+    <Reveal className="acct-head">
+      <div className="acct-head-main">
+        <Avatar profile={profile} size={64} />
+        <div className="acct-head-text">
+          <p className="acct-role">{role}</p>
+          <h1>{profile.name || 'Tu cuenta'}</h1>
+          {onChangeAvatar && (
+            <button type="button" className="acct-link" onClick={onChangeAvatar}>Cambiar avatar</button>
+          )}
+        </div>
+      </div>
+      <div className="acct-head-branch"><BranchSwitcher /></div>
+    </Reveal>
+  );
+}
+
+function LogoutButton({ logout }) {
+  return <button type="button" className="btn btn-ghost btn-block acct-logout" onClick={logout}>Cerrar sesión</button>;
+}
+
 function ComensalView({ profile, logout }) {
   return (
     <section className="cuenta-page">
       <div className="wrap">
-        <Reveal className="profile-card">
-          <Avatar profile={profile} />
-          <div>
-            <h3>{profile.name}</h3>
-            <span className="role-tag">Comensal</span>
-          </div>
+        <AccountHeader profile={profile} role="Comensal" />
+
+        <Reveal delay={0.05} style={{ marginTop: 20 }}>
+          <Link href="/ordenes" className="acct-cta">
+            <span>
+              <b>Ir a Órdenes</b>
+              <small>Ve y actualiza los pedidos de la sucursal que tengas activa. Es la única sección de tu cuenta.</small>
+            </span>
+            <Chevron />
+          </Link>
         </Reveal>
 
-        <BranchSwitcher />
-
-        <p className="muted" style={{ fontSize: 13, marginTop: 20 }}>
-          Tu cuenta solo tiene acceso a Órdenes — ahí puedes ver y actualizar los pedidos de la sucursal que tengas activa.
-        </p>
-        <Link href="/ordenes" className="btn btn-amber btn-block" style={{ marginTop: 16 }}>Ir a Órdenes</Link>
-
-        <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={logout}>Cerrar sesión</button>
+        <LogoutButton logout={logout} />
       </div>
     </section>
   );
+}
+
+function Chevron({ className = '' }) {
+  return <svg className={`acct-chevron ${className}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>;
 }
 
 function ClientView({ profile, logout }) {
@@ -99,18 +120,9 @@ function ClientView({ profile, logout }) {
   return (
     <section className="cuenta-page">
       <div className="wrap">
-        <Reveal className="profile-card">
-          <Avatar profile={profile} />
-          <div>
-            <h2 style={{ fontSize: 22 }}>{profile.name}</h2>
-            <span className="role-tag">Cliente</span>
-            <button type="button" className="avatar-change-link" onClick={() => setPickingAvatar(true)}>Cambiar avatar</button>
-          </div>
-        </Reveal>
+        <AccountHeader profile={profile} role="Cliente" onChangeAvatar={() => setPickingAvatar(true)} />
 
         {pickingAvatar && <AvatarPicker onClose={() => setPickingAvatar(false)} />}
-
-        <BranchSwitcher />
 
         <Reveal className="giftcard-card" delay={0.08}>
           <BrandLogo alt="" className="card-logo-mark" />
@@ -128,17 +140,22 @@ function ClientView({ profile, logout }) {
 
         <div className="home-section-top" style={{ marginTop: 34 }}>
           <h3>Tus favoritos</h3>
+          {favItems.length > 0 && <span className="acct-count">{favItems.length}</span>}
         </div>
         {isGuest && <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Sesión de invitado: tus favoritos no se guardan al cerrar el navegador.</p>}
         {favItems.length === 0 ? (
-          <p className="empty-note">Todavía no tienes favoritos. Toca el corazón en cualquier producto del menú.</p>
+          <div className="acct-empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
+            <p>Todavía no tienes favoritos. Toca el corazón en cualquier producto del menú y aparecerá aquí.</p>
+            <Link href="/menu" className="pill-btn-dark">Ver el menú</Link>
+          </div>
         ) : (
           <div className="home-grid">
             {favItems.map((item) => <ProductCard key={item.id} item={item} tint="manana" />)}
           </div>
         )}
 
-        <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 40 }} onClick={logout}>Cerrar sesión</button>
+        <LogoutButton logout={logout} />
       </div>
 
       <AnimatePresence>
@@ -172,9 +189,9 @@ function GiftCardBanners({ cards, onSelect }) {
         <div className="offers-track" ref={trackRef} onScroll={onScroll}>
           {cards.map((gc) => (
             <button type="button" key={gc.id} className="offer-card giftcard-slide" onClick={() => onSelect(gc)}>
-              <div className="ph">
-                {gc.design?.image_url && <img className="real" src={gc.design.image_url} alt="" />}
-              </div>
+              {gc.design?.image_url && (
+                <div className="ph"><img className="real" src={gc.design.image_url} alt="" /></div>
+              )}
               <BrandLogo alt="" className="card-logo-mark" />
               <div className="offer-content">
                 <span className="giftcard-slide-status">{gc.status === 'activa' ? 'Activa' : gc.status === 'pendiente' ? 'Pendiente de pago' : 'Canjeada'}</span>
@@ -229,116 +246,169 @@ function GiftCardDetailModal({ card, onClose }) {
   );
 }
 
+// Herramientas del dueño, agrupadas por para qué sirven. Cada una se abre como un panel
+// y su contenido se carga solo la primera vez que se abre (antes se cargaban todas al entrar).
+const SITE_PHOTOS = [
+  { key: 'welcome', label: 'Portada de acceso', caption: 'Portada de acceso (login y registro)', uploadKind: 'cover', modalSub: 'Es la foto o video que se ve arriba en la entrada, el inicio de sesión y el registro. Debe ser vertical de 1080 × 1920 px (9:16). Pon lo importante en la mitad de arriba: abajo lo tapan los botones. Un video corto (hasta 20 s, sin sonido) se repite solo.' },
+  { key: 'hero', label: 'Portada', caption: 'Portada / oferta' },
+  { key: 'founder', label: 'Fundador', caption: 'Fundador' },
+  { key: 'azotea', label: 'Ambiente', caption: 'Ambiente / terraza' },
+  { key: 'gallery-0', label: 'Galería 1', caption: 'Galería 1' },
+  { key: 'gallery-1', label: 'Galería 2', caption: 'Galería 2' },
+  { key: 'gallery-2', label: 'Galería 3', caption: 'Galería 3' },
+  { key: 'map', label: 'Mapa', caption: 'Mapa / fachada' },
+];
+
+function SitePhotos() {
+  return (
+    <div className="admin-photo-grid">
+      {SITE_PHOTOS.map((ph) => (
+        <div key={ph.key}>
+          <EditablePhoto imgKey={ph.key} label={ph.label} className="admin-thumb" uploadKind={ph.uploadKind} modalSub={ph.modalSub} />
+          <span>{ph.caption}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StaffView({ profile, logout }) {
   const [pickingAvatar, setPickingAvatar] = useState(false);
   const [gifting, setGifting] = useState(false);
+
+  const groups = [
+    {
+      id: 'negocio',
+      eyebrow: 'Tu negocio',
+      title: 'Configuración',
+      sub: 'Nombre, logo, colores, sucursales y equipo. Los cambios se ven al instante en toda la página.',
+      lead: (
+        <Link href="/setup" className="acct-cta acct-cta-dark">
+          <span>
+            <b>Asistente de configuración</b>
+            <small>Te guía paso a paso por lo esencial de tu negocio.</small>
+          </span>
+          <Chevron />
+        </Link>
+      ),
+      tools: [
+        { id: 'identity', title: 'Nombre y logo', desc: 'Nombre, eslogan, logo y descripción para Google.', render: () => <BrandSettingsForm group="identity" /> },
+        { id: 'colors', title: 'Colores', desc: 'Los colores de botones, fondos y textos.', render: () => <ThemeEditor /> },
+        { id: 'branches', title: 'Sucursales', desc: 'Los locales donde atiendes.', render: () => <BranchesManager /> },
+        { id: 'team', title: 'Equipo', desc: 'Dueños y comensales que te ayudan con los pedidos.', render: () => <TeamManager /> },
+        { id: 'contact', title: 'Contacto y horario', desc: 'Dirección, teléfono, WhatsApp, redes y horario.', render: () => <BrandSettingsForm group="contact" /> },
+        { id: 'money', title: 'Moneda y gift cards', desc: 'Símbolo de la moneda y prefijo de los códigos de gift card.', render: () => <BrandSettingsForm group="money" /> },
+      ],
+    },
+    {
+      id: 'pagina',
+      eyebrow: 'Tu página',
+      title: 'Personalización',
+      sub: 'Los productos y categorías se editan directamente en Inicio y Menú (aparecen los controles al pasar el cursor). Aquí manejas las fotos, los banners y la página Nosotros.',
+      tools: [
+        { id: 'photos', title: 'Fotos del sitio', desc: 'Portada de acceso, portada, ambiente, galería y mapa.', render: () => <SitePhotos /> },
+        { id: 'offers', title: 'Banners de oferta', desc: 'Los anuncios que se deslizan en Inicio.', render: () => <OffersCarousel /> },
+        {
+          id: 'nosotros',
+          title: 'Página "Nosotros"',
+          desc: 'No está en tu barra de navegación, pero puedes editarle el texto y las fotos.',
+          render: () => <Link href="/nosotros" className="pill-btn-dark">Editar página de Nosotros</Link>,
+        },
+      ],
+    },
+    {
+      id: 'pedidos',
+      eyebrow: 'Pedidos',
+      title: 'Cómo se pide',
+      sub: 'Mesas, precios finales, avisos al cliente y promociones del día.',
+      tools: [
+        { id: 'tables', title: 'Mesas', desc: 'Las mesas que el cliente elige al pedir en la sucursal activa.', render: () => <TableManager /> },
+        { id: 'taxes', title: 'Impuestos y porcientos', desc: 'Se suman automáticamente al precio cuando alguien paga desde la app.', render: () => <TaxSettingsManager /> },
+        { id: 'messages', title: 'Avisos de pedidos', desc: 'El mensaje que le sale al cliente cuando cambias el estado de su pedido.', render: () => <OrderMessagesManager /> },
+        { id: 'earlybird', title: 'Early Bird · bebida gratis', desc: 'El primero que pida dentro del horario se gana el premio. Se reinicia cada día.', render: () => <EarlyBirdManager /> },
+      ],
+    },
+    {
+      id: 'clientes',
+      eyebrow: 'Clientes',
+      title: 'Gift cards y avatares',
+      sub: 'Lo que tus clientes compran, reciben y eligen para su perfil.',
+      tools: [
+        {
+          id: 'giftdesigns',
+          title: 'Diseños de gift card',
+          desc: 'Las tarjetas que tus clientes pueden comprar o recibir de regalo.',
+          render: () => (
+            <>
+              <button type="button" className="pill-btn-dark" style={{ marginBottom: 16 }} onClick={() => setGifting(true)}>Regalar una gift card</button>
+              <GiftCardDesignManager />
+            </>
+          ),
+        },
+        { id: 'avatars', title: 'Fotos de avatar', desc: 'Los clientes eligen entre estas fotos; ellos no pueden subir las suyas.', render: () => <AvatarLibraryManager /> },
+      ],
+    },
+  ];
+
   return (
     <section className="cuenta-page">
       <div className="wrap">
-        <Reveal className="profile-card">
-          <Avatar profile={profile} />
-          <div>
-            <h2 style={{ fontSize: 22 }}>{profile.name}</h2>
-            <span className="role-tag">Comensal · Dueño</span>
-            <button type="button" className="avatar-change-link" onClick={() => setPickingAvatar(true)}>Cambiar avatar</button>
-          </div>
-        </Reveal>
+        <AccountHeader profile={profile} role="Dueño" onChangeAvatar={() => setPickingAvatar(true)} />
 
         {pickingAvatar && <AvatarPicker onClose={() => setPickingAvatar(false)} />}
 
-        <BranchSwitcher />
+        <nav className="acct-jump" aria-label="Secciones del panel">
+          {groups.map((g) => <a key={g.id} href={`#${g.id}`}>{g.eyebrow}</a>)}
+        </nav>
 
-        <Reveal delay={0.03}>
-          <div className="section-head" style={{ marginTop: 34 }}>
-            <p className="eyebrow">Tu negocio</p>
-            <h2 style={{ fontSize: 22 }}>Configuración</h2>
-            <p>Nombre, logo, colores, sucursales y equipo. Los cambios se ven al instante en toda la página.</p>
-          </div>
-          <Link href="/setup" className="pill-btn-dark" style={{ marginBottom: 14, display: 'inline-block' }}>Abrir asistente de configuración</Link>
-          <details className="admin-details"><summary>Nombre y logo</summary><div><BrandSettingsForm group="identity" /></div></details>
-          <details className="admin-details"><summary>Colores</summary><div><ThemeEditor /></div></details>
-          <details className="admin-details"><summary>Sucursales</summary><div><BranchesManager /></div></details>
-          <details className="admin-details"><summary>Equipo (dueños y comensales)</summary><div><TeamManager /></div></details>
-          <details className="admin-details"><summary>Contacto y horario</summary><div><BrandSettingsForm group="contact" /></div></details>
-          <details className="admin-details"><summary>Moneda y gift cards</summary><div><BrandSettingsForm group="money" /></div></details>
-        </Reveal>
-
-        <Reveal delay={0.05}>
-          <div className="section-head" style={{ marginTop: 34 }}>
-            <p className="eyebrow">Panel del dueño</p>
-            <h2 style={{ fontSize: 22 }}>Personalización de la página</h2>
-            <p>Los productos y categorías se editan directamente en Inicio y Menú (aparecen los controles al pasar el cursor). Aquí puedes manejar las fotos del sitio y los banners de oferta.</p>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.1}>
-          <div className="home-section-top"><h3>Fotos del sitio</h3></div>
-          <div className="admin-photo-grid">
-            <div><EditablePhoto imgKey="welcome" label="Portada de acceso" className="admin-thumb" uploadKind="cover" modalSub="Es la foto o video que se ve arriba en la entrada, el inicio de sesión y el registro. Debe ser vertical de 1080 × 1920 px (9:16). Pon lo importante en la mitad de arriba: abajo lo tapan los botones. Un video corto (hasta 20 s, sin sonido) se repite solo." /><span>Portada de acceso (login y registro)</span></div>
-            <div><EditablePhoto imgKey="hero" label="Portada" className="admin-thumb" /><span>Portada / oferta</span></div>
-            <div><EditablePhoto imgKey="founder" label="Fundador" className="admin-thumb" /><span>Fundador</span></div>
-            <div><EditablePhoto imgKey="azotea" label="Ambiente" className="admin-thumb" /><span>Ambiente / terraza</span></div>
-            <div><EditablePhoto imgKey="gallery-0" label="Galería 1" className="admin-thumb" /><span>Galería 1</span></div>
-            <div><EditablePhoto imgKey="gallery-1" label="Galería 2" className="admin-thumb" /><span>Galería 2</span></div>
-            <div><EditablePhoto imgKey="gallery-2" label="Galería 3" className="admin-thumb" /><span>Galería 3</span></div>
-            <div><EditablePhoto imgKey="map" label="Mapa" className="admin-thumb" /><span>Mapa / fachada</span></div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.15}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Banners de oferta</h3></div>
-          <OffersCarousel />
-        </Reveal>
-
-        <Reveal delay={0.2}>
-          <div className="home-section-top" style={{ marginTop: 34 }}>
-            <h3>Diseños de gift card</h3>
-            <button type="button" className="pill-btn-dark" onClick={() => setGifting(true)}>Regalar una</button>
-          </div>
-          <GiftCardDesignManager />
-        </Reveal>
+        {groups.map((g, gi) => (
+          <Reveal key={g.id} delay={0.03 + gi * 0.03} className="acct-group">
+            <div className="section-head acct-group-head" id={g.id}>
+              <p className="eyebrow">{g.eyebrow}</p>
+              <h2>{g.title}</h2>
+              <p>{g.sub}</p>
+            </div>
+            {g.lead}
+            <div className="acct-tools">
+              {g.tools.map((t) => <ToolPanel key={t.id} id={t.id} title={t.title} desc={t.desc}>{t.render}</ToolPanel>)}
+            </div>
+          </Reveal>
+        ))}
 
         {gifting && <GiftCardGiftModal onClose={() => setGifting(false)} onDone={() => {}} />}
 
-        <Reveal delay={0.22}>
-          <div className="home-section-top" style={{ marginTop: 34 }}>
-            <h3>Fotos de avatar</h3>
-          </div>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Los clientes eligen entre estas fotos — ellos no pueden subir las suyas.</p>
-          <AvatarLibraryManager />
-        </Reveal>
-
-        <Reveal delay={0.24}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Mesas</h3></div>
-          <TableManager />
-        </Reveal>
-
-        <Reveal delay={0.26}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Early Bird · bebida gratis</h3></div>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>El primero que pida dentro de este horario se gana el premio. Se reinicia solo cada día.</p>
-          <EarlyBirdManager />
-        </Reveal>
-
-        <Reveal delay={0.28}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Impuestos y porcientos</h3></div>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Se suman automáticamente al precio de los productos cuando alguien paga desde la app.</p>
-          <TaxSettingsManager />
-        </Reveal>
-
-        <Reveal delay={0.29}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Avisos de pedidos</h3></div>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Escribe el mensaje que le sale al cliente cuando cambias el estado de su pedido en Órdenes.</p>
-          <OrderMessagesManager />
-        </Reveal>
-
-        <Reveal delay={0.3}>
-          <div className="home-section-top" style={{ marginTop: 34 }}><h3>Página &quot;Nosotros&quot;</h3></div>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Esa página no está en tu barra de navegación, pero puedes editarle el texto y las fotos desde aquí.</p>
-          <Link href="/nosotros" className="pill-btn-dark">Editar página de Nosotros</Link>
-        </Reveal>
-
-        <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 20 }} onClick={logout}>Cerrar sesión</button>
+        <LogoutButton logout={logout} />
       </div>
     </section>
+  );
+}
+
+// Panel plegable. El contenido se monta la primera vez que se abre y después solo se oculta,
+// así no se pierde lo que el dueño estaba escribiendo si lo cierra y lo vuelve a abrir.
+function ToolPanel({ id, title, desc, children }) {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const bodyId = `tool-${id}`;
+
+  function toggle() {
+    setMounted(true);
+    setOpen((v) => !v);
+  }
+
+  return (
+    <div className={`acct-tool${open ? ' open' : ''}`}>
+      <button type="button" className="acct-tool-head" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
+        <span>
+          <b>{title}</b>
+          <small>{desc}</small>
+        </span>
+        <Chevron />
+      </button>
+      {mounted && (
+        <div id={bodyId} className="acct-tool-body" hidden={!open}>
+          {children()}
+        </div>
+      )}
+    </div>
   );
 }
