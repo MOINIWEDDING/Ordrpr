@@ -21,7 +21,7 @@ export async function GET() {
 }
 
 // Envía el aviso con OneSignal a un "external id" (cuenta o aparato de invitado).
-async function sendToOneSignal({ appId, apiKey, externalId, heading, text, icon, url, topic }) {
+async function sendToOneSignal({ appId, apiKey, externalId, heading, text, icon, url, topic, extra }) {
   const body = {
     app_id: appId,
     target_channel: 'push',
@@ -34,6 +34,7 @@ async function sendToOneSignal({ appId, apiKey, externalId, heading, text, icon,
   };
   if (icon && /^https:\/\//.test(icon)) body.chrome_web_icon = icon;
   if (topic) body.web_push_topic = topic;
+  if (extra) body.data = extra; // datos que viajan con el aviso (la prueba del dueño se muestra aunque la página esté abierta)
   const res = await fetch(ONESIGNAL_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${apiKey}` },
@@ -79,7 +80,7 @@ export async function POST(req) {
     const r = await sendToOneSignal({
       appId, apiKey, externalId: u.user.id,
       heading: brand || 'Prueba', text: 'Así te llegarán los avisos de pedidos.',
-      icon: st && st.logo_url, url: `${origin}/cuenta`, topic: 'prueba',
+      icon: st && st.logo_url, url: `${origin}/cuenta`, topic: 'prueba', extra: { test: true },
     });
     return json({ test: true, ...r });
   }
