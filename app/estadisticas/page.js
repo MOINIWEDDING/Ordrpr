@@ -3,134 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
-import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
+import { BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { useBranch } from '@/context/BranchContext';
 import { useSettings } from '@/context/SettingsContext';
 import { formatIn } from '@/lib/settingsDefaults';
-import { currencyInfo } from '@/lib/currencies';
-
-const GENDER_LABELS = { femenino: 'Femenino', masculino: 'Masculino', prefiero_no_decir: 'Prefiero no decir', sin_dato: 'Sin dato' };
-const PAY_LABELS = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', gift_card: 'Tarjeta de regalo' };
-const DAY_LABELS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-
-// Los días se manejan como 'AAAA-MM-DD' en la hora del aparato del dueño,
-// para que "hoy" sea el mismo día que ve en su teléfono.
-function dayKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function startOfDay(key) {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-function addDays(date, n) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d;
-}
-function addMonths(date, n) {
-  return new Date(date.getFullYear(), date.getMonth() + n, 1);
-}
-const capitalize = (t) => t.charAt(0).toUpperCase() + t.slice(1);
-const shortDate = (d) => d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
-
-const PERIODS = [
-  { id: 'dia', label: 'Día' },
-  { id: 'semana', label: 'Semana' },
-  { id: 'mes', label: 'Mes' },
-  { id: 'custom', label: 'A vs B' },
-  { id: 'todo', label: 'Todo' },
-];
-
-// Rango [start, end) del periodo que contiene el día elegido, y del periodo anterior.
-// Las semanas van de lunes a domingo.
-function periodRange(period, key) {
-  const d = startOfDay(key);
-  if (period === 'semana') {
-    const start = addDays(d, -((d.getDay() + 6) % 7));
-    return { start, end: addDays(start, 7), prevStart: addDays(start, -7), prevEnd: start };
-  }
-  if (period === 'mes') {
-    const start = addMonths(d, 0);
-    return { start, end: addMonths(d, 1), prevStart: addMonths(d, -1), prevEnd: start };
-  }
-  return { start: d, end: addDays(d, 1), prevStart: addDays(d, -1), prevEnd: d };
-}
-
-// Línea de tiempo libre: { from, to } en 'AAAA-MM-DD', ambos días incluidos.
-function lineRange(line) {
-  return { start: startOfDay(line.from), end: addDays(startOfDay(line.to), 1) };
-}
-const lineDays = (r) => Math.round((r.end - r.start) / 86400000);
-function lineTitle(line) {
-  if (line.from === line.to) return dayTitle(line.from);
-  return `${shortDate(startOfDay(line.from))} – ${shortDate(startOfDay(line.to))}`;
-}
-
-function periodTitle(period, range) {
-  const now = new Date();
-  const current = now >= range.start && now < range.end;
-  if (period === 'semana') {
-    if (current) return 'Esta semana';
-    return `Semana del ${shortDate(range.start)} al ${shortDate(addDays(range.end, -1))}`;
-  }
-  if (period === 'mes') {
-    if (current) return 'Este mes';
-    return capitalize(range.start.toLocaleDateString('es', { month: 'long', year: 'numeric' }));
-  }
-  return dayTitle(dayKey(range.start));
-}
-
-function dayTitle(key) {
-  if (key === dayKey(new Date())) return 'Hoy';
-  if (key === dayKey(addDays(new Date(), -1))) return 'Ayer';
-  return capitalize(startOfDay(key).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }));
-}
-
-const sumSubtotal = (list) => list.reduce((s, o) => s + Number(o.subtotal || 0), 0);
-
-// Los números principales de un grupo de pedidos (se calculan igual para el periodo y para el anterior).
-function summarize(orders, costById) {
-  const revenue = sumSubtotal(orders);
-  let cost = 0;
-  orders.forEach((o) => (o.items || []).forEach((it) => { cost += (costById[it.id] || 0) * it.qty; }));
-  return {
-    revenue,
-    count: orders.length,
-    avgTicket: orders.length ? revenue / orders.length : 0,
-    card: sumSubtotal(orders.filter((o) => o.payment_method === 'tarjeta')),
-    cash: sumSubtotal(orders.filter((o) => o.payment_method === 'efectivo')),
-    profit: revenue - cost,
-  };
-}
-
-// Ventas agrupadas por la moneda en que se pagó. Un pedido sin payment_currency se pagó en la moneda
-// principal. "collected" es lo que entró en esa moneda (con impuestos); "equivalent", lo mismo en
-// moneda principal, para poder comparar monedas entre sí.
-function salesByCurrency(orders, base) {
-  const map = {};
-  orders.forEach((o) => {
-    const pc = o.payment_currency && o.payment_currency.code ? o.payment_currency : null;
-    const code = pc ? pc.code : base.code;
-    if (!map[code]) {
-      map[code] = {
-        code, base: !pc || code === base.code,
-        symbol: pc ? pc.symbol : base.symbol, position: pc ? pc.position : base.position,
-        name: (currencyInfo(code) || {}).name || (pc && pc.name) || code,
-        collected: 0, equivalent: 0, count: 0, cash: 0, card: 0,
-      };
-    }
-    const row = map[code];
-    const equivalent = Number(o.subtotal || 0) + Number(o.tax_amount || 0);
-    const collected = pc ? Number(pc.total || 0) : equivalent;
-    row.collected += collected;
-    row.equivalent += equivalent;
-    row.count += 1;
-    if (o.payment_method === 'efectivo') row.cash += collected;
-    if (o.payment_method === 'tarjeta') row.card += collected;
-  });
-  return Object.values(map).sort((a, b) => (b.base - a.base) || (b.equivalent - a.equivalent));
-}
+import Modal from '@/components/Modal';
+import { PERIODS, capitalize, dayKey, startOfDay, addDays, addMonths, periodRange, lineRange, lineTitle, periodTitle, computeStats, loadStatsData } from '@/lib/stats';
 
 export default function EstadisticasPage() {
   const { profile, isStaff } = useAuth();
@@ -147,6 +26,7 @@ export default function EstadisticasPage() {
   const [day, setDay] = useState(() => dayKey(new Date())); // cualquier día dentro del periodo elegido
   const [lineA, setLineA] = useState(() => ({ from: dayKey(addDays(new Date(), -6)), to: dayKey(new Date()) }));
   const [lineB, setLineB] = useState(() => ({ from: dayKey(addDays(new Date(), -13)), to: dayKey(addDays(new Date(), -7)) }));
+  const [exporting, setExporting] = useState(false);
   const range = useMemo(() => {
     if (period === 'todo') return null;
     if (period !== 'custom') return periodRange(period, day);
@@ -165,35 +45,11 @@ export default function EstadisticasPage() {
       if (!BARRO_CONFIGURED) { setLoading(false); return; }
       setLoading(true);
       try {
-        const ordersBetween = (from, to) => {
-          let q = sb.from('orders').select('*');
-          if (branch) q = q.eq('branch', branch);
-          if (from) q = q.gte('created_at', from.toISOString()).lt('created_at', to.toISOString());
-          return q;
-        };
-        let giftQuery = sb.from('gift_cards').select('*');
-        if (range) giftQuery = giftQuery.gte('created_at', range.start.toISOString()).lt('created_at', range.end.toISOString());
-        // Se traen las dos líneas de tiempo por separado (pueden estar muy lejos una de otra)
-        // y se juntan sin repetir los pedidos que caigan en ambas.
-        const ordersQuery = range
-          ? Promise.all([ordersBetween(range.start, range.end), ordersBetween(range.prevStart, range.prevEnd)]).then(([a, b]) => {
-            if (a.error || b.error) return { error: a.error || b.error };
-            const seen = new Set();
-            return { data: [...(a.data || []), ...(b.data || [])].filter((o) => !seen.has(o.id) && seen.add(o.id)) };
-          })
-          : ordersBetween();
-        const [ordersRes, profilesRes, itemsRes, giftRes] = await Promise.all([
-          ordersQuery,
-          sb.from('profiles').select('*').eq('role', 'cliente'),
-          sb.from('menu_items').select('id, name, category, cost, price'),
-          giftQuery,
-        ]);
-        const firstError = ordersRes.error || profilesRes.error || itemsRes.error || giftRes.error;
-        if (firstError) throw firstError;
-        setOrders(ordersRes.data || []);
-        setProfiles(profilesRes.data || []);
-        setMenuItems(itemsRes.data || []);
-        setGiftCards(giftRes.data || []);
+        const data = await loadStatsData({ branch, range });
+        setOrders(data.rawOrders);
+        setProfiles(data.profiles);
+        setMenuItems(data.menuItems);
+        setGiftCards(data.giftCards);
       } catch (err) {
         setLoadError(err.message || 'No se pudieron cargar las estadísticas.');
       } finally {
@@ -203,128 +59,7 @@ export default function EstadisticasPage() {
     load();
   }, [branch, range]);
 
-  const stats = useMemo(() => {
-    const between = (list, from, to) => list.filter((o) => { const t = new Date(o.created_at); return t >= from && t < to; });
-    const costById = {}; menuItems.forEach((m) => { costById[m.id] = Number(m.cost || 0); });
-    const orders = range ? between(rawOrders, range.start, range.end) : rawOrders;
-    const prevOrders = range ? between(rawOrders, range.prevStart, range.prevEnd) : [];
-
-    // Si el periodo está en curso (hoy, esta semana, este mes), se compara contra el anterior
-    // solo hasta el mismo punto: hoy a las 3 p. m. contra ayer a las 3 p. m., no contra ayer completo.
-    const now = new Date();
-    // (con "A vs B" se compara exactamente lo que se eligió).
-    const inProgress = Boolean(range) && period !== 'custom' && now >= range.start && now < range.end;
-    const prevCutoff = inProgress ? new Date(Math.min(range.prevStart.getTime() + (now - range.start), range.prevEnd.getTime())) : range && range.prevEnd;
-    const current = summarize(orders, costById);
-    const previous = range ? summarize(between(prevOrders, range.prevStart, prevCutoff), costById) : null;
-
-    const totalRevenue = current.revenue;
-    const totalOrders = current.count;
-
-    const baseCurrency = { code: settings.currency_code || 'DOP', symbol: settings.currency_symbol || '$', position: settings.currency_position || 'before' };
-    const currencySales = salesByCurrency(orders, baseCurrency);
-    const prevCurrencySales = range ? salesByCurrency(between(prevOrders, range.prevStart, prevCutoff), baseCurrency) : null;
-    const hasExtraCurrencies = (Array.isArray(settings.extra_currencies) && settings.extra_currencies.length > 0) || currencySales.some((c) => !c.base);
-
-    const itemMap = {};
-    orders.forEach((o) => (o.items || []).forEach((it) => {
-      const key = it.id || it.name;
-      if (!itemMap[key]) itemMap[key] = { id: it.id, name: it.name, qty: 0, revenue: 0 };
-      itemMap[key].qty += it.qty;
-      itemMap[key].revenue += it.qty * it.price;
-    }));
-    const soldArr = Object.values(itemMap);
-    const bestSellers = [...soldArr].sort((a, b) => b.qty - a.qty).slice(0, 5);
-    const soldIds = new Set(soldArr.map((i) => i.id).filter(Boolean));
-    const zeroItems = menuItems.filter((m) => !soldIds.has(m.id)).map((m) => ({ id: m.id, name: m.name, qty: 0, revenue: 0 }));
-    const worstSellers = [...soldArr, ...zeroItems].sort((a, b) => a.qty - b.qty).slice(0, 5);
-
-    const catById = {}; menuItems.forEach((m) => { catById[m.id] = m.category; });
-    const catMap = {};
-    orders.forEach((o) => (o.items || []).forEach((it) => {
-      const cat = catById[it.id] || 'Otros';
-      catMap[cat] = (catMap[cat] || 0) + it.qty * it.price;
-    }));
-    const categories = Object.entries(catMap).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-
-    const payMap = {};
-    orders.forEach((o) => { const m = o.payment_method || 'otro'; payMap[m] = (payMap[m] || 0) + 1; });
-    const payments = Object.entries(payMap).map(([k, value]) => ({ label: PAY_LABELS[k] || k, value })).sort((a, b) => b.value - a.value);
-
-    // sexo y edad: se toman de cada pedido (customer_gender/customer_age), no del
-    // perfil directamente, porque así se incluye también a quienes piden como invitados.
-    const genderMap = {};
-    orders.forEach((o) => { const g = o.customer_gender || 'sin_dato'; genderMap[g] = (genderMap[g] || 0) + 1; });
-    const genders = Object.entries(genderMap).map(([k, value]) => ({ label: GENDER_LABELS[k] || k, value })).sort((a, b) => b.value - a.value);
-
-    const ageBuckets = { '< 18': 0, '18–24': 0, '25–34': 0, '35–44': 0, '45–54': 0, '55+': 0, 'Sin dato': 0 };
-    orders.forEach((o) => {
-      const a = o.customer_age;
-      if (!a) ageBuckets['Sin dato']++;
-      else if (a < 18) ageBuckets['< 18']++;
-      else if (a <= 24) ageBuckets['18–24']++;
-      else if (a <= 34) ageBuckets['25–34']++;
-      else if (a <= 44) ageBuckets['35–44']++;
-      else if (a <= 54) ageBuckets['45–54']++;
-      else ageBuckets['55+']++;
-    });
-    const ages = Object.entries(ageBuckets).map(([label, value]) => ({ label, value }));
-
-    const accountOrders = orders.filter((o) => o.user_id).length;
-    const guestOrders = totalOrders - accountOrders;
-
-    const hourCounts = Array(24).fill(0);
-    orders.forEach((o) => { const h = new Date(o.created_at).getHours(); hourCounts[h]++; });
-
-    // Gráfica: con "Todo", los últimos 7 días; con un periodo, el periodo contra el anterior completo.
-    let dayRevenue = [];
-    let compareChart = [];
-    if (!range) {
-      const today = startOfDay(dayKey(now));
-      for (let i = 6; i >= 0; i--) {
-        const d = addDays(today, -i);
-        dayRevenue.push({ label: DAY_LABELS[d.getDay()], value: sumSubtotal(between(orders, d, addDays(d, 1))) });
-      }
-    } else {
-      // con "A vs B" se alinea día 1 con día 1; si ambas líneas son de un solo día, por hora
-      const byHour = period === 'dia' || (period === 'custom' && lineDays(range) === 1 && lineDays({ start: range.prevStart, end: range.prevEnd }) === 1);
-      const byIndex = period === 'semana' || (period === 'custom' && !byHour);
-      const slotOf = (o, start) => {
-        const t = new Date(o.created_at);
-        if (byHour) return t.getHours();
-        if (byIndex) return Math.round((startOfDay(dayKey(t)) - start) / 86400000); // round: un día de cambio de horario dura 23 o 25 h
-        return t.getDate() - 1;
-      };
-      const slots = byHour ? 24 : period === 'semana' ? 7
-        : period === 'custom' ? Math.max(lineDays(range), lineDays({ start: range.prevStart, end: range.prevEnd }))
-        : Math.max(addDays(range.end, -1).getDate(), addDays(range.start, -1).getDate());
-      compareChart = Array.from({ length: slots }, (_, i) => ({
-        label: byHour ? (i % 3 === 0 ? `${i}h` : '')
-          : period === 'semana' ? DAY_LABELS[(i + 1) % 7]
-          : (slots <= 10 || i === 0 || (i + 1) % 5 === 0 ? String(i + 1) : ''),
-        value: 0,
-        prev: 0,
-      }));
-      orders.forEach((o) => { const i = slotOf(o, range.start); if (compareChart[i]) compareChart[i].value += Number(o.subtotal || 0); });
-      prevOrders.forEach((o) => { const i = slotOf(o, range.prevStart); if (compareChart[i]) compareChart[i].prev += Number(o.subtotal || 0); });
-    }
-
-    const gcSoldCount = giftCards.length;
-    const gcSoldAmount = giftCards.reduce((s, g) => s + Number(g.amount || 0), 0);
-    const gcRedeemedCount = giftCards.filter((g) => g.status === 'canjeada').length;
-    const gcActiveBalance = giftCards.filter((g) => g.status === 'activa').reduce((s, g) => s + Number(g.amount || 0), 0);
-
-    const hasCostData = menuItems.some((m) => Number(m.cost || 0) > 0);
-
-    return {
-      current, previous, inProgress, prevCount: prevOrders.length, compareChart,
-      currencySales, prevCurrencySales, hasExtraCurrencies,
-      totalOrders, bestSellers, worstSellers, categories, payments,
-      genders, ages, accountOrders, guestOrders, hourCounts, dayRevenue,
-      gcSoldCount, gcSoldAmount, gcRedeemedCount, gcActiveBalance,
-      hasCostData, totalClients: profiles.length,
-    };
-  }, [rawOrders, profiles, menuItems, giftCards, range, period, settings]);
+  const stats = useMemo(() => computeStats({ rawOrders, profiles, menuItems, giftCards, range, period, settings }), [rawOrders, profiles, menuItems, giftCards, range, period, settings]);
 
   const compareLabel = !range ? '' : period === 'custom' ? `la línea B (${lineTitle(lineB).toLowerCase()})` : {
     dia: stats.inProgress ? 'ayer a esta hora' : 'el día anterior',
@@ -346,7 +81,23 @@ export default function EstadisticasPage() {
           <p>{branchInfo ? `Ventas y pedidos de ${branchInfo.full}. Los clientes y gift cards son del negocio completo.` : 'Un vistazo a cómo le está yendo al local.'}</p>
         </div>
 
-        <PeriodTabs period={period} onChange={setPeriod} />
+        <div className="stat-toolbar">
+          <PeriodTabs period={period} onChange={setPeriod} />
+          <button type="button" className="stat-export-btn" onClick={() => setExporting(true)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5" /></svg>
+            Exportar PDF
+          </button>
+        </div>
+        {exporting && (
+          <ReportExportModal
+            initialMode={period === 'custom' ? 'ab' : 'mes'}
+            initialMonth={(period === 'mes' || period === 'semana' || period === 'dia') ? day.slice(0, 7) : dayKey(new Date()).slice(0, 7)}
+            lineA={lineA}
+            lineB={lineB}
+            onClose={() => setExporting(false)}
+            onCreate={(href) => router.push(href)}
+          />
+        )}
         {period === 'custom'
           ? <LinePickers lineA={lineA} lineB={lineB} onChangeA={setLineA} onChangeB={setLineB} />
           : <DayPicker period={period} day={day} range={range} onChange={setDay} />}
@@ -481,6 +232,69 @@ export default function EstadisticasPage() {
         )}
       </div>
     </section>
+  );
+}
+
+// Elegir qué reporte exportar: un mes completo (contra el mes anterior) o dos líneas de tiempo A vs B.
+function ReportExportModal({ initialMode, initialMonth, lineA, lineB, onClose, onCreate }) {
+  const [mode, setMode] = useState(initialMode);
+  const [month, setMonth] = useState(initialMonth);
+  const [a, setA] = useState(lineA);
+  const [b, setB] = useState(lineB);
+  const thisMonth = dayKey(new Date()).slice(0, 7);
+  const months = Array.from({ length: 6 }, (_, i) => dayKey(addMonths(new Date(), -i)).slice(0, 7));
+  const monthName = (m) => capitalize(startOfDay(`${m}-01`).toLocaleDateString('es', { month: 'long' }));
+
+  function create() {
+    onCreate(mode === 'mes'
+      ? `/estadisticas/reporte?tipo=mes&mes=${month}`
+      : `/estadisticas/reporte?tipo=ab&a=${a.from}_${a.to}&b=${b.from}_${b.to}`);
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="pe">
+        <div className="pe-head">
+          <p className="eyebrow">Reporte en PDF</p>
+          <h3>Exportar estadísticas</h3>
+        </div>
+        <div className="seg-buttons" role="group" aria-label="Tipo de reporte">
+          <button type="button" className={mode === 'mes' ? 'active' : ''} aria-pressed={mode === 'mes'} onClick={() => setMode('mes')}>Un mes</button>
+          <button type="button" className={mode === 'ab' ? 'active' : ''} aria-pressed={mode === 'ab'} onClick={() => setMode('ab')}>A vs B</button>
+        </div>
+
+        {mode === 'mes' ? (
+          <section className="pe-section">
+            <h4>Mes</h4>
+            <div className="report-months">
+              {months.map((m) => (
+                <button key={m} type="button" className={`report-month${month === m ? ' active' : ''}`} aria-pressed={month === m} onClick={() => setMonth(m)}>
+                  <b>{monthName(m)}</b>
+                  <span>{m.slice(0, 4)}</span>
+                </button>
+              ))}
+            </div>
+            <label className="report-month-other">
+              <span>Otro mes</span>
+              <input type="month" value={month} max={thisMonth} onChange={(e) => { if (e.target.value) setMonth(e.target.value); }} />
+            </label>
+          </section>
+        ) : (
+          <section className="pe-section">
+            <h4>Líneas de tiempo</h4>
+            <div className="stat-lines" style={{ marginBottom: 0 }}>
+              <LinePicker name="A" tone="current" line={a} onChange={setA} />
+              <LinePicker name="B" tone="prev" line={b} onChange={setB} />
+            </div>
+          </section>
+        )}
+
+        <div className="pe-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn btn-amber" onClick={create}>Crear reporte</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

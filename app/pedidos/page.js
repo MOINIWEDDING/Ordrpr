@@ -9,7 +9,6 @@ import { describeOptions } from '@/lib/productOptions';
 import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
-import BrandLogo from '@/components/BrandLogo';
 import PushPrompt from '@/components/PushPrompt';
 import { getGuestOrderIds, keepGuestOrders } from '@/lib/guestOrders';
 
@@ -93,7 +92,6 @@ function GuestOrders() {
 function OrderCard({ order, branchName }) {
   return (
     <div className="order-card">
-      <BrandLogo alt="" className="card-logo-mark" />
       <div className="order-card-top">
         <div>
           <h4>{order.table_number}</h4>

@@ -7,7 +7,6 @@ import { useUploader } from '@/hooks/useUploader';
 import { isVideoUrl } from '@/lib/upload';
 import Modal from './Modal';
 import Reveal from './Reveal';
-import BrandLogo from './BrandLogo';
 
 function demoOffers() {
   return [
@@ -66,7 +65,6 @@ export default function OffersCarousel() {
                     : <img className="real" src={offer.image_url} alt={offer.title} />)
                   : <svg className="ph-icon" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13.5" r="3.4" /></svg>}
               </div>
-              <BrandLogo alt="" className="card-logo-mark" />
               <div className="offer-content">
                 <p className="eyebrow">Oferta</p>
                 <h3>{offer.title}</h3>
