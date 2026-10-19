@@ -6,6 +6,8 @@ import { money } from '@/hooks/useMenuItems';
 import { PRODUCT_PHOTO_MIN, PRODUCT_PHOTO_MAX } from '@/lib/upload';
 import Modal from './Modal';
 import ProductIcon from './ProductIcon';
+import OptionGroupsEditor from './OptionGroupsEditor';
+import { normalizeGroups } from '@/lib/productOptions';
 import { useSettings } from '@/context/SettingsContext';
 
 // Editor de productos: arriba una vista previa en vivo de la tarjeta (tal como la verá el cliente,
@@ -22,6 +24,10 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
   const [featured, setFeatured] = useState(item ? !!item.featured : false);
   const [isBeverage, setIsBeverage] = useState(item ? !!item.is_beverage : false);
   const [onHome, setOnHome] = useState(item ? !item.home_hidden : true);
+  // acompañantes y extras; los precios se editan como texto y se convierten al guardar
+  const [optionGroups, setOptionGroups] = useState(() => normalizeGroups(item && item.options).map((g) => ({
+    ...g, choices: g.choices.map((c) => ({ label: c.label, price: c.price ? String(c.price) : '' })),
+  })));
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [saving, setSaving] = useState(false);
   const { settings } = useSettings();
@@ -65,9 +71,20 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
       const n = parseFloat(currencyPrices[c.code]);
       if (n > 0) prices[c.code] = n;
     });
+    const cleanOptions = normalizeGroups(optionGroups.map((g) => ({
+      ...g,
+      name: g.name.trim(),
+      choices: g.choices.map((c) => ({ label: c.label.trim(), price: parseFloat(c.price) || 0 })).filter((c) => c.label),
+    })));
+    if (optionGroups.some((g) => !g.name.trim() && g.choices.some((c) => c.label.trim()))) {
+      setMsg({ text: 'Ponle nombre a cada grupo de acompañantes.', type: 'error' });
+      return;
+    }
+    const names = cleanOptions.map((g) => g.name.toLowerCase());
+    if (new Set(names).size !== names.length) { setMsg({ text: 'Hay dos grupos de acompañantes con el mismo nombre.', type: 'error' }); return; }
     const payload = {
       name: name.trim(), price: priceNum, cost: costNum || 0, category, image_url: uploader.url,
-      tags: allTags.join(', '), description: description.trim(), featured, is_beverage: isBeverage, currency_prices: prices, home_hidden: !onHome,
+      tags: allTags.join(', '), description: description.trim(), featured, is_beverage: isBeverage, currency_prices: prices, home_hidden: !onHome, options: cleanOptions,
     };
     if (item) payload.updated_at = new Date().toISOString();
     setSaving(true);
@@ -196,6 +213,11 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
               </div>
             </div>
           )}
+        </section>
+
+        <section className="pe-section">
+          <h4>Acompañantes y extras</h4>
+          <OptionGroupsEditor value={optionGroups} onChange={setOptionGroups} symbol={baseSymbol} />
         </section>
 
         <section className="pe-section">

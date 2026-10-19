@@ -8,6 +8,7 @@ import { useBranch } from '@/context/BranchContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { formatIn } from '@/lib/settingsDefaults';
+import { describeOptions } from '@/lib/productOptions';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { sendOrderPush, orderPushNotice } from '@/lib/push';
@@ -156,6 +157,7 @@ function OrdersList() {
             {(order.items || []).map((it, i) => (
               <li key={i}>
                 <span>{it.qty}× {it.name}</span>
+                {it.options && it.options.length > 0 && <span className="order-item-options">{describeOptions(it.options)}</span>}
                 {it.notes && <span className="order-item-note">— {it.notes}</span>}
               </li>
             ))}

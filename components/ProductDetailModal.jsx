@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useCurrency, basePriceFor } from '@/context/CurrencyContext';
+import { normalizeGroups, initialSelection, toggleChoice, missingRequired, groupHint } from '@/lib/productOptions';
 
 export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   const { addItem } = useCart();
   const { currency, format } = useCurrency();
   const { isFav, toggle } = useFavorites();
   const [qty, setQty] = useState(1);
-  const options = Array.isArray(item.options) ? item.options : [];
-  const [selected, setSelected] = useState(() => options.map((g) => ({ group: g.name, ...g.choices[0] })));
+  const options = normalizeGroups(item.options);
+  const [selected, setSelected] = useState(() => initialSelection(options));
+  const [missing, setMissing] = useState('');
   const tags = (item.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
   const fav = isFav(item.id);
 
@@ -19,11 +21,16 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   const unitPrice = basePriceFor(item, currency) + selected.reduce((s, o) => s + (o.price || 0), 0);
 
   function chooseOption(groupName, choice) {
-    setSelected((prev) => prev.map((o) => (o.group === groupName ? { group: groupName, ...choice } : o)));
+    setMissing('');
+    setSelected((prev) => toggleChoice(options, prev, groupName, choice));
   }
 
   function handleAdd() {
-    addItem(item, qty, selected);
+    const need = missingRequired(options, selected);
+    if (need) { setMissing(need); return; }
+    // en el orden de los grupos, para que el carrito y la orden lo muestren igual que el menú
+    const ordered = options.flatMap((g) => g.choices.filter((c) => selected.some((o) => o.group === g.name && o.label === c.label)).map((c) => ({ group: g.name, ...c })));
+    addItem(item, qty, ordered);
     onClose();
   }
 
@@ -66,16 +73,21 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
             </div>
 
             {options.map((group) => (
-              <div key={group.name} className="pd-options-group">
-                <h3 className="pd-section-title">{group.name}</h3>
+              <div key={group.name} className={`pd-options-group${missing === group.name ? ' missing' : ''}`}>
+                <div className="pd-options-head">
+                  <h3 className="pd-section-title">{group.name}</h3>
+                  <span className={`pd-options-hint${group.required ? ' required' : ''}`}>{groupHint(group)}</span>
+                </div>
                 <div className="pd-options-choices">
                   {group.choices.map((choice) => {
-                    const isActive = selected.find((o) => o.group === group.name)?.label === choice.label;
+                    const isActive = selected.some((o) => o.group === group.name && o.label === choice.label);
                     return (
                       <button
                         type="button"
                         key={choice.label}
-                        className={`pd-option-pill${isActive ? ' active' : ''}`}
+                        role={group.type === 'multiple' ? 'checkbox' : 'radio'}
+                        aria-checked={isActive}
+                        className={`pd-option-pill${isActive ? ' active' : ''}${group.type === 'multiple' ? ' multi' : ''}`}
                         onClick={() => chooseOption(group.name, choice)}
                       >
                         {choice.label}{choice.price > 0 ? ` +${format(choice.price)}` : ''}
@@ -94,6 +106,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
             </p>
           </div>
 
+          {missing && <p className="pd-missing" role="alert">Elige {missing.toLowerCase()} para continuar</p>}
           <div className="pd-cta-wrap">
             <motion.button whileTap={{ scale: 0.92 }} type="button" className="pd-cta" onClick={handleAdd} aria-label="Agregar al carrito">
               <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { formatIn } from '@/lib/settingsDefaults';
+import { describeOptions } from '@/lib/productOptions';
 import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
@@ -104,6 +105,7 @@ function OrderCard({ order, branchName }) {
         {(order.items || []).map((it, i) => (
           <li key={i}>
             <span>{it.qty}× {it.name}</span>
+            {it.options && it.options.length > 0 && <span className="order-item-options">{describeOptions(it.options)}</span>}
             {it.notes && <span className="order-item-note">— {it.notes}</span>}
           </li>
         ))}
