@@ -6,6 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { useBranch } from '@/context/BranchContext';
+import { useSettings } from '@/context/SettingsContext';
+import { formatIn } from '@/lib/settingsDefaults';
+import { currencyInfo } from '@/lib/currencies';
 
 const GENDER_LABELS = { femenino: 'Femenino', masculino: 'Masculino', prefiero_no_decir: 'Prefiero no decir', sin_dato: 'Sin dato' };
 const PAY_LABELS = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', gift_card: 'Tarjeta de regalo' };
@@ -101,9 +104,38 @@ function summarize(orders, costById) {
   };
 }
 
+// Ventas agrupadas por la moneda en que se pagó. Un pedido sin payment_currency se pagó en la moneda
+// principal. "collected" es lo que entró en esa moneda (con impuestos); "equivalent", lo mismo en
+// moneda principal, para poder comparar monedas entre sí.
+function salesByCurrency(orders, base) {
+  const map = {};
+  orders.forEach((o) => {
+    const pc = o.payment_currency && o.payment_currency.code ? o.payment_currency : null;
+    const code = pc ? pc.code : base.code;
+    if (!map[code]) {
+      map[code] = {
+        code, base: !pc || code === base.code,
+        symbol: pc ? pc.symbol : base.symbol, position: pc ? pc.position : base.position,
+        name: (currencyInfo(code) || {}).name || (pc && pc.name) || code,
+        collected: 0, equivalent: 0, count: 0, cash: 0, card: 0,
+      };
+    }
+    const row = map[code];
+    const equivalent = Number(o.subtotal || 0) + Number(o.tax_amount || 0);
+    const collected = pc ? Number(pc.total || 0) : equivalent;
+    row.collected += collected;
+    row.equivalent += equivalent;
+    row.count += 1;
+    if (o.payment_method === 'efectivo') row.cash += collected;
+    if (o.payment_method === 'tarjeta') row.card += collected;
+  });
+  return Object.values(map).sort((a, b) => (b.base - a.base) || (b.equivalent - a.equivalent));
+}
+
 export default function EstadisticasPage() {
   const { profile, isStaff } = useAuth();
   const { branch, branchInfo } = useBranch();
+  const { settings } = useSettings();
   const router = useRouter();
   const [rawOrders, setOrders] = useState([]);
   const [profiles, setProfiles] = useState([]);
@@ -188,6 +220,11 @@ export default function EstadisticasPage() {
 
     const totalRevenue = current.revenue;
     const totalOrders = current.count;
+
+    const baseCurrency = { code: settings.currency_code || 'DOP', symbol: settings.currency_symbol || '$', position: settings.currency_position || 'before' };
+    const currencySales = salesByCurrency(orders, baseCurrency);
+    const prevCurrencySales = range ? salesByCurrency(between(prevOrders, range.prevStart, prevCutoff), baseCurrency) : null;
+    const hasExtraCurrencies = (Array.isArray(settings.extra_currencies) && settings.extra_currencies.length > 0) || currencySales.some((c) => !c.base);
 
     const itemMap = {};
     orders.forEach((o) => (o.items || []).forEach((it) => {
@@ -281,12 +318,13 @@ export default function EstadisticasPage() {
 
     return {
       current, previous, inProgress, prevCount: prevOrders.length, compareChart,
+      currencySales, prevCurrencySales, hasExtraCurrencies,
       totalOrders, bestSellers, worstSellers, categories, payments,
       genders, ages, accountOrders, guestOrders, hourCounts, dayRevenue,
       gcSoldCount, gcSoldAmount, gcRedeemedCount, gcActiveBalance,
       hasCostData, totalClients: profiles.length,
     };
-  }, [rawOrders, profiles, menuItems, giftCards, range, period]);
+  }, [rawOrders, profiles, menuItems, giftCards, range, period, settings]);
 
   const compareLabel = !range ? '' : period === 'custom' ? `la línea B (${lineTitle(lineB).toLowerCase()})` : {
     dia: stats.inProgress ? 'ayer a esta hora' : 'el día anterior',
@@ -340,6 +378,45 @@ export default function EstadisticasPage() {
             ) : (
               <StatSection title="Ventas de los últimos 7 días">
                 <MiniBarChart data={stats.dayRevenue} formatValue={(v) => money(Math.round(v))} />
+              </StatSection>
+            )}
+
+            {stats.hasExtraCurrencies && (
+              <StatSection title="Ventas por moneda">
+                <div className="currency-stat-grid">
+                  {stats.currencySales.map((c) => {
+                    const fmt = (n) => (c.base ? money(Math.round(n)) : formatIn(n, c));
+                    const prev = stats.prevCurrencySales && (stats.prevCurrencySales.find((p) => p.code === c.code) || { collected: 0 });
+                    return (
+                      <motion.div key={c.code} className="currency-stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+                        <div className="currency-stat-head">
+                          <span className="currency-stat-symbol">{c.symbol}</span>
+                          <span>{c.name}</span>
+                        </div>
+                        <span className="kpi-label">Cobrado</span>
+                        <span className="kpi-value">{fmt(c.collected)}</span>
+                        {prev && <DeltaLine current={c.collected} prev={prev.collected} format={fmt} />}
+                        <dl className="currency-stat-rows">
+                          {!c.base && <div><dt>Equivale a</dt><dd>{money(Math.round(c.equivalent))}</dd></div>}
+                          <div><dt>Pedidos</dt><dd>{c.count} ({Math.round((c.count / Math.max(1, stats.totalOrders)) * 100)}%)</dd></div>
+                          <div><dt>Ticket promedio</dt><dd>{fmt(c.collected / Math.max(1, c.count))}</dd></div>
+                          <div><dt>Efectivo</dt><dd>{fmt(c.cash)}</dd></div>
+                          <div><dt>Tarjeta</dt><dd>{fmt(c.card)}</dd></div>
+                          {!c.base && c.collected > 0 && <div><dt>Tasa promedio</dt><dd>1 {c.symbol} = {money(Math.round((c.equivalent / c.collected) * 100) / 100)}</dd></div>}
+                        </dl>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                {stats.currencySales.length > 1 && (
+                  <div style={{ marginTop: 18 }}>
+                    <BarList
+                      items={stats.currencySales.map((c) => ({ label: `${c.symbol} · ${c.name}`, value: Math.round(c.equivalent) }))}
+                      formatValue={(v) => money(v)}
+                      tint="experiencia"
+                    />
+                  </div>
+                )}
               </StatSection>
             )}
 
