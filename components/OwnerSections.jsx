@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useSettings } from '@/context/SettingsContext';
 import EditablePhoto from '@/components/EditablePhoto';
 import OffersCarousel from '@/components/OffersCarousel';
 import GiftCardDesignManager from '@/components/GiftCardDesignManager';
@@ -31,6 +32,36 @@ const SITE_PHOTOS = [
   { key: 'gallery-2', label: 'Galería 3', caption: 'Galería 3' },
   { key: 'map', label: 'Mapa', caption: 'Mapa / fachada' },
 ];
+
+function NosotrosSettings() {
+  const { settings, saveSettings } = useSettings();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const on = settings.show_nosotros !== false;
+
+  async function toggle(next) {
+    setSaving(true);
+    setError('');
+    const { error: err } = await saveSettings({ show_nosotros: next });
+    setSaving(false);
+    if (err) setError(/show_nosotros/i.test(err.message || '') ? 'Falta actualizar la base de datos de este restaurante.' : err.message);
+  }
+
+  return (
+    <div className="nosotros-settings">
+      <div className="pe-toggles">
+        <label className={`pe-toggle${on ? ' on' : ''}`} htmlFor="showNosotros">
+          <span className="pe-toggle-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg></span>
+          <span className="pe-toggle-text"><b>Mostrar a los clientes</b></span>
+          <input id="showNosotros" type="checkbox" role="switch" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} />
+          <span className="pe-switch" aria-hidden="true" />
+        </label>
+      </div>
+      {error && <div className="form-msg show error">{error}</div>}
+      <Link href="/nosotros" className="pill-btn-dark">Editar página de Nosotros</Link>
+    </div>
+  );
+}
 
 function SitePhotos() {
   return (
@@ -86,8 +117,8 @@ export function ownerSections({ onGift }) {
         {
           id: 'nosotros',
           title: 'Página "Nosotros"',
-          desc: 'No está en tu barra de navegación, pero puedes editarle el texto y las fotos.',
-          render: () => <Link href="/nosotros" className="pill-btn-dark">Editar página de Nosotros</Link>,
+          desc: 'Muéstrala u ocúltala a tus clientes y edita su texto y fotos.',
+          render: () => <NosotrosSettings />,
         },
       ],
     },

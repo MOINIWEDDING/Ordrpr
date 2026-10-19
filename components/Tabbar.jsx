@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
 
 const GUEST_TABS = [
@@ -26,12 +27,14 @@ export default function Tabbar() {
   const pathname = usePathname();
   const { profile, isStaff, isComensal } = useAuth();
   const { unseenCount } = useOrdersNotify();
+  const { settings } = useSettings();
 
   // En la pantalla de bienvenida/login (Cuenta sin sesión) no mostramos la barra,
   // para que se sienta como una pantalla propia, sin navegación detrás.
   if (pathname === '/cuenta' && !profile) return null;
 
-  const baseTabs = isStaff ? STAFF_TABS : isComensal ? COMENSAL_TABS : GUEST_TABS;
+  const baseTabs = (isStaff ? STAFF_TABS : isComensal ? COMENSAL_TABS : GUEST_TABS)
+    .filter((t) => t.href !== '/nosotros' || settings.show_nosotros !== false);
   const tabs = [...baseTabs, { href: '/cuenta', label: 'Cuenta', icon: <><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></> }];
 
   return (

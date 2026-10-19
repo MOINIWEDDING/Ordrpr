@@ -1349,3 +1349,10 @@ header{display:none;}
 .branch-actions{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
 .branch-actions button{font-size:12px; font-weight:700; border:none; border-radius:100px; padding:6px 12px; background:var(--cream-2); color:var(--ink);}
 .branch-form{padding:18px; background:#fff; border:1px solid var(--line); border-radius:16px;}
+
+/* Página Nosotros oculta */
+.nosotros-settings{display:flex; flex-direction:column; gap:12px; align-items:flex-start;}
+.nosotros-settings .pe-toggles{align-self:stretch; margin:0; border:1px solid var(--line); border-radius:14px; overflow:hidden;}
+.nosotros-off{min-height:55vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding-top:48px;}
+.nosotros-off h2{font-size:24px;}
+.nosotros-hidden-note{margin-top:16px; padding:10px 14px; border-radius:12px; background:var(--cream-2); color:var(--ink-soft); font-size:13px; font-weight:600; text-align:center;}
