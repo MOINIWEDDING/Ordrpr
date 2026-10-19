@@ -11,7 +11,8 @@ import { formatIn } from '@/lib/settingsDefaults';
 import BrandLogo from '@/components/BrandLogo';
 import { PAY_LABELS, capitalize, startOfDay, periodRange, lineRange, computeStats, loadStatsData } from '@/lib/stats';
 
-// Reporte de estadísticas para imprimir o guardar como PDF (A4). Dos tipos:
+// Reporte de estadísticas para imprimir o guardar como PDF (A4). Tres tipos:
+//   ?tipo=dia&dia=AAAA-MM-DD        un día contra el día anterior
 //   ?tipo=mes&mes=AAAA-MM           un mes contra el mes anterior
 //   ?tipo=ab&a=desde_hasta&b=…      dos líneas de tiempo elegidas por el dueño
 // Los números salen de lib/stats.js, los mismos que se ven en /estadisticas.
@@ -50,6 +51,18 @@ function readParams(params) {
       range: { start: ra.start, end: ra.end, prevStart: rb.start, prevEnd: rb.end },
       aName: rangeName(a.from, a.to), bName: rangeName(b.from, b.to), aShort: 'A', bShort: 'B',
       fileName: `A vs B ${a.from} ${b.from}`,
+    };
+  }
+  if (params.get('tipo') === 'dia') {
+    const day = params.get('dia');
+    if (!DAY_RE.test(day || '')) return null;
+    const range = periodRange('dia', day);
+    return {
+      kind: 'dia', period: 'dia', range,
+      aName: capitalize(range.start.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
+      bName: capitalize(range.prevStart.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })),
+      aShort: shortDay(range.start), bShort: shortDay(range.prevStart),
+      fileName: day,
     };
   }
   const month = params.get('mes');
@@ -153,9 +166,11 @@ export default function StatsReport() {
 function ReportDocument({ spec, stats, settings, brand, place }) {
   const cur = stats.current;
   const prev = stats.previous || { revenue: 0, count: 0, avgTicket: 0, card: 0, cash: 0, profit: 0 };
-  const bLabel = spec.kind === 'mes' && stats.inProgress
-    ? `${spec.bName}, hasta el día ${new Date().getDate()}`
-    : spec.bName;
+  // si el periodo sigue en curso, B se cuenta solo hasta el mismo punto (ver computeStats)
+  const now = new Date();
+  const bLabel = !stats.inProgress ? spec.bName
+    : spec.kind === 'mes' ? `${spec.bName}, hasta el día ${now.getDate()}`
+    : `${spec.bName}, hasta las ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`;
   const generated = new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
   const round = (v) => money(Math.round(v));
 
@@ -196,8 +211,8 @@ function ReportDocument({ spec, stats, settings, brand, place }) {
             </div>
           </div>
           <div className="rp-kind">
-            <span>{spec.kind === 'mes' ? 'Reporte mensual' : 'Reporte comparativo'}</span>
-            <b>{spec.kind === 'mes' ? spec.aName : 'A vs B'}</b>
+            <span>{{ dia: 'Reporte diario', mes: 'Reporte mensual', ab: 'Reporte comparativo' }[spec.kind]}</span>
+            <b>{spec.kind === 'ab' ? 'A vs B' : spec.aName}</b>
           </div>
         </div>
 

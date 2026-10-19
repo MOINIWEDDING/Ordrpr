@@ -90,7 +90,8 @@ export default function EstadisticasPage() {
         </div>
         {exporting && (
           <ReportExportModal
-            initialMode={period === 'custom' ? 'ab' : 'mes'}
+            initialMode={period === 'custom' ? 'ab' : period === 'dia' ? 'dia' : 'mes'}
+            initialDay={period === 'dia' ? day : dayKey(new Date())}
             initialMonth={(period === 'mes' || period === 'semana' || period === 'dia') ? day.slice(0, 7) : dayKey(new Date()).slice(0, 7)}
             lineA={lineA}
             lineB={lineB}
@@ -236,9 +237,13 @@ export default function EstadisticasPage() {
 }
 
 // Elegir qué reporte exportar: un mes completo (contra el mes anterior) o dos líneas de tiempo A vs B.
-function ReportExportModal({ initialMode, initialMonth, lineA, lineB, onClose, onCreate }) {
+function ReportExportModal({ initialMode, initialDay, initialMonth, lineA, lineB, onClose, onCreate }) {
   const [mode, setMode] = useState(initialMode);
   const [month, setMonth] = useState(initialMonth);
+  const [reportDay, setReportDay] = useState(initialDay);
+  const today = dayKey(new Date());
+  const days = [0, 1, 2].map((i) => dayKey(addDays(new Date(), -i)));
+  const dayName = (k, i) => (i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : capitalize(startOfDay(k).toLocaleDateString('es', { weekday: 'long' })));
   const [a, setA] = useState(lineA);
   const [b, setB] = useState(lineB);
   const thisMonth = dayKey(new Date()).slice(0, 7);
@@ -246,9 +251,11 @@ function ReportExportModal({ initialMode, initialMonth, lineA, lineB, onClose, o
   const monthName = (m) => capitalize(startOfDay(`${m}-01`).toLocaleDateString('es', { month: 'long' }));
 
   function create() {
-    onCreate(mode === 'mes'
-      ? `/estadisticas/reporte?tipo=mes&mes=${month}`
-      : `/estadisticas/reporte?tipo=ab&a=${a.from}_${a.to}&b=${b.from}_${b.to}`);
+    onCreate({
+      dia: `/estadisticas/reporte?tipo=dia&dia=${reportDay}`,
+      mes: `/estadisticas/reporte?tipo=mes&mes=${month}`,
+      ab: `/estadisticas/reporte?tipo=ab&a=${a.from}_${a.to}&b=${b.from}_${b.to}`,
+    }[mode]);
   }
 
   return (
@@ -259,11 +266,28 @@ function ReportExportModal({ initialMode, initialMonth, lineA, lineB, onClose, o
           <h3>Exportar estadísticas</h3>
         </div>
         <div className="seg-buttons" role="group" aria-label="Tipo de reporte">
+          <button type="button" className={mode === 'dia' ? 'active' : ''} aria-pressed={mode === 'dia'} onClick={() => setMode('dia')}>Un día</button>
           <button type="button" className={mode === 'mes' ? 'active' : ''} aria-pressed={mode === 'mes'} onClick={() => setMode('mes')}>Un mes</button>
           <button type="button" className={mode === 'ab' ? 'active' : ''} aria-pressed={mode === 'ab'} onClick={() => setMode('ab')}>A vs B</button>
         </div>
 
-        {mode === 'mes' ? (
+        {mode === 'dia' ? (
+          <section className="pe-section">
+            <h4>Día</h4>
+            <div className="report-months">
+              {days.map((k, i) => (
+                <button key={k} type="button" className={`report-month${reportDay === k ? ' active' : ''}`} aria-pressed={reportDay === k} onClick={() => setReportDay(k)}>
+                  <b>{dayName(k, i)}</b>
+                  <span>{startOfDay(k).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</span>
+                </button>
+              ))}
+            </div>
+            <label className="report-month-other">
+              <span>Otro día</span>
+              <input type="date" value={reportDay} max={today} onChange={(e) => { if (e.target.value) setReportDay(e.target.value); }} />
+            </label>
+          </section>
+        ) : mode === 'mes' ? (
           <section className="pe-section">
             <h4>Mes</h4>
             <div className="report-months">
