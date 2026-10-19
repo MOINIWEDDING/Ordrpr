@@ -107,5 +107,6 @@ Desde ese momento recibe cada actualización junto con los demás.
 | `20261019120000_monedas_extra.sql` | Otras monedas para pagar: las que agrega el dueño y la que eligió el cliente en cada pedido. |
 | `20261019150000_codigo_moneda.sql` | Código de la moneda principal, para buscar las tasas de cambio del día. |
 | `20261019180000_precios_por_moneda.sql` | Precio propio de cada producto en otra moneda (por ejemplo US$6). |
+| `20261019210000_inicio_y_personalizacion.sql` | Ocultar y ordenar en el inicio, color de fondo y CSS/HTML propios del menú tipo carta. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

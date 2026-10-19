@@ -25,7 +25,9 @@ export function useMenuItems() {
     if (!BARRO_CONFIGURED) { setItems(demoMenu()); setLoading(false); return; }
     const { data, error } = await sb.from('menu_items').select('*').order('created_at', { ascending: true });
     if (error) { setItems(demoMenu()); setLoading(false); return; }
-    setItems(data || []);
+    // orden elegido por el dueño (sort_order) y, a igualdad, el de creación; se ordena aquí para que
+    // funcione aunque la base de datos aún no tenga la columna sort_order
+    setItems((data || []).map((it, i) => ({ it, i })).sort((a, b) => ((a.it.sort_order || 0) - (b.it.sort_order || 0)) || (a.i - b.i)).map((x) => x.it));
     setLoading(false);
   }, []);
 

@@ -25,7 +25,7 @@ export function SettingsProvider({ initial, children }) {
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
-  useEffect(() => { applyTheme(settings.primary_color); }, [settings.primary_color]);
+  useEffect(() => { applyTheme(settings.primary_color, settings.background_color); }, [settings.primary_color, settings.background_color]);
 
   // Guarda cambios (solo el dueño puede: lo exige la base de datos con RLS).
   const saveSettings = useCallback(async (patch) => {

@@ -39,7 +39,7 @@ export default function HomeContent() {
           <OffersCarousel />
 
           <Reveal as="div" className="cat-row">
-            {categories.map((c) => (
+            {categories.filter((c) => !c.home_hidden).map((c) => (
               <Link key={c.id} className="cat-item" href={`/menu?cat=${encodeURIComponent(c.name)}`}>
                 <div className="cat-icon" style={{ background: `var(--tint-${c.tint})` }}>
                   <ProductIcon name={c.icon} />

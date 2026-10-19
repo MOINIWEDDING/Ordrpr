@@ -21,6 +21,7 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
   const [description, setDescription] = useState(item ? (item.description || '') : '');
   const [featured, setFeatured] = useState(item ? !!item.featured : false);
   const [isBeverage, setIsBeverage] = useState(item ? !!item.is_beverage : false);
+  const [onHome, setOnHome] = useState(item ? !item.home_hidden : true);
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [saving, setSaving] = useState(false);
   const { settings } = useSettings();
@@ -66,17 +67,20 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
     });
     const payload = {
       name: name.trim(), price: priceNum, cost: costNum || 0, category, image_url: uploader.url,
-      tags: allTags.join(', '), description: description.trim(), featured, is_beverage: isBeverage, currency_prices: prices,
+      tags: allTags.join(', '), description: description.trim(), featured, is_beverage: isBeverage, currency_prices: prices, home_hidden: !onHome,
     };
     if (item) payload.updated_at = new Date().toISOString();
     setSaving(true);
     const save = (data) => (item ? sb.from('menu_items').update(data).eq('id', item.id) : sb.from('menu_items').insert(data));
     let { error } = await save(payload);
-    // si la base de datos aún no tiene la columna de precios por moneda (falta su migración), se guarda lo demás
-    if (error && /currency_prices/i.test(error.message || '')) {
-      const rest = { ...payload };
-      delete rest.currency_prices;
-      ({ error } = await save(rest));
+    // si la base de datos aún no tiene alguna columna nueva (falta su migración), se guarda lo demás
+    let sent = payload;
+    for (const col of ['currency_prices', 'home_hidden']) {
+      if (error && new RegExp(col, 'i').test(error.message || '')) {
+        sent = { ...sent };
+        delete sent[col];
+        ({ error } = await save(sent));
+      }
     }
     setSaving(false);
     if (error) { setMsg({ text: error.message, type: 'error' }); return; }
@@ -224,6 +228,7 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
             </div>
           </div>
           <div className="pe-toggles">
+            <Toggle id="pOnHome" checked={onHome} onChange={setOnHome} title="Mostrar en el inicio" icon={<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" />} />
             <Toggle id="pFeatured" checked={featured} onChange={setFeatured} title="Destacado" icon={<path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4 7.2 18.9l.9-5.4-3.9-3.8 5.4-.8z" />} />
             <Toggle id="pBeverage" checked={isBeverage} onChange={setIsBeverage} title="Es una bebida" sub="Cuenta para el Early Bird" icon={<path d="M7 4h10l-1.2 15a1 1 0 0 1-1 .9H9.2a1 1 0 0 1-1-.9zM6.5 8h11" />} />
           </div>

@@ -20,9 +20,12 @@ export default function CategoryCarousels({ limit = null, showAddCategory = true
   const [editingItem, setEditingItem] = useState(null); // {item, defaultCategory} | null
   const [editingCategory, setEditingCategory] = useState(null); // category | 'new' | null
 
+  // en el inicio no aparecen las categorías ni los productos que el dueño ocultó (siguen en el menú)
+  const visibleItems = items.filter((i) => !i.home_hidden);
+  const visibleCategories = categories.filter((c) => !c.home_hidden);
   const categoriesWithItems = limit
-    ? categories.filter((c) => items.some((i) => i.category === c.name))
-    : categories;
+    ? visibleCategories.filter((c) => visibleItems.some((i) => i.category === c.name))
+    : visibleCategories;
 
   async function reload() { await Promise.all([reloadItems(), reloadCategories()]); }
 
@@ -32,8 +35,8 @@ export default function CategoryCarousels({ limit = null, showAddCategory = true
         <CategorySection
           key={cat.id}
           category={cat}
-          items={items.filter((i) => i.category === cat.name).slice(0, limit || undefined)}
-          allCount={items.filter((i) => i.category === cat.name).length}
+          items={visibleItems.filter((i) => i.category === cat.name).slice(0, limit || undefined)}
+          allCount={visibleItems.filter((i) => i.category === cat.name).length}
           limited={!!limit}
           onAddProduct={() => setEditingItem({ item: null, defaultCategory: cat.name })}
           onEditProduct={(item) => setEditingItem({ item, defaultCategory: cat.name })}

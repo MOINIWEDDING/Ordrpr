@@ -1,10 +1,12 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useSettings } from '@/context/SettingsContext';
+import { sanitizeHtml, scopeCss } from '@/lib/customContent';
 import { useCategories } from '@/hooks/useCategories';
 import ProductModal from './ProductModal';
 import CategoryModal from './CategoryModal';
@@ -22,6 +24,14 @@ export default function MenuCarta() {
 
   async function reload() { await Promise.all([reloadItems(), reloadCategories()]); }
 
+  // CSS y HTML propios del dueño (ver lib/customContent.js): el HTML se limpia en el navegador
+  const { settings } = useSettings();
+  const [customHtml, setCustomHtml] = useState({ top: '', bottom: '' });
+  useEffect(() => {
+    setCustomHtml({ top: sanitizeHtml(settings.menu_custom_html_top), bottom: sanitizeHtml(settings.menu_custom_html_bottom) });
+  }, [settings.menu_custom_html_top, settings.menu_custom_html_bottom]);
+  const customCss = scopeCss(settings.menu_custom_css, '.carta.carta-custom');
+
   async function handleDeleteItem(item) {
     if (!window.confirm(`¿Eliminar "${item.name}"?`)) return;
     if (BARRO_CONFIGURED) {
@@ -38,7 +48,9 @@ export default function MenuCarta() {
   }, [items, query]);
 
   return (
-    <div className="carta">
+    <div className="carta carta-custom">
+      {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {customHtml.top && <div className="carta-custom-top" dangerouslySetInnerHTML={{ __html: customHtml.top }} />}
       <Reveal className="carta-search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.3-4.3" /></svg>
         <input
@@ -113,6 +125,8 @@ export default function MenuCarta() {
           + Agregar categoría
         </button>
       )}
+
+      {customHtml.bottom && <div className="carta-custom-bottom" dangerouslySetInnerHTML={{ __html: customHtml.bottom }} />}
 
       <p className="carta-footnote">Pregunta por nuestras cervezas artesanales y salsas de la casa disponibles. Precios no incluyen impuestos.</p>
 

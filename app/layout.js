@@ -48,7 +48,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="es" className={`${outfit.variable} ${urbanist.variable}`}>
       <head>
-        <style dangerouslySetInnerHTML={{ __html: themeCss(settings.primary_color) }} />
+        <style dangerouslySetInnerHTML={{ __html: themeCss(settings.primary_color, settings.background_color) }} />
       </head>
       <body>
         <SettingsProvider initial={settings}>

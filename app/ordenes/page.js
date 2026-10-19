@@ -8,7 +8,6 @@ import { useBranch } from '@/context/BranchContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { formatIn } from '@/lib/settingsDefaults';
-import BrandLogo from '@/components/BrandLogo';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { sendOrderPush, orderPushNotice } from '@/lib/push';
@@ -133,7 +132,6 @@ function OrdersList() {
           <button type="button" className="order-delete-btn" aria-label="Eliminar pedido" onClick={() => setDeletingId(order.id)}>
             <svg className="icon" style={{ width: 14, height: 14 }} viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>
           </button>
-          <BrandLogo alt="" className="card-logo-mark card-logo-mark-left" />
 
           {deletingId === order.id && (
             <div className="order-confirm-del">
@@ -233,7 +231,6 @@ function GiftCardsList() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
         >
-          <BrandLogo alt="" className="card-logo-mark" />
           <div className="order-card-top">
             <div>
               <h4>{gc.is_gift ? `${settings.brand_name.toUpperCase()} REGALÓ UNA GIFT CARD` : (gc.buyer_name || 'Cliente')}</h4>
