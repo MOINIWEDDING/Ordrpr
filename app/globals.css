@@ -19,6 +19,7 @@
   --cream-on-dark:#F3ECDD;
 
   --err:#B8492A;
+  --ok:#3D7A3A;
   --radius:14px;
   --radius-lg:22px;
   --shadow: 0 20px 44px -22px rgba(36,28,19,0.32);
@@ -806,8 +807,8 @@ header{display:none;}
 .pay-soon{display:block; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin-top:4px;}
 
 .order-success{display:flex; flex-direction:column; align-items:center; text-align:center; padding:60px 30px 50px;}
-.order-check{width:84px; height:84px; border-radius:50%; background:var(--ok); display:flex; align-items:center; justify-content:center; margin-bottom:22px;}
-.order-check svg{width:42px; height:42px; stroke:#fff; fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;}
+.order-check{width:84px; height:84px; border-radius:50%; background:var(--amber); display:flex; align-items:center; justify-content:center; margin-bottom:22px;}
+.order-check svg{width:42px; height:42px; stroke:var(--on-amber); fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;}
 .order-success h3{font-size:21px;}
 .order-success p{margin-top:8px; font-size:14px; color:var(--ink-soft);}
 
@@ -1496,3 +1497,140 @@ body.report-mode{padding-bottom:0;}
   .rp-foot{margin-top:28px !important;}
   .rp-sheet:last-child{break-after:auto;}
 }
+
+/* ---------- Códigos promocionales ---------- */
+.promo-head{max-width:none !important; display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+.promo-new{display:inline-flex; align-items:center; gap:6px;}
+.promo-new svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;}
+.promo-summary{display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:22px;}
+.promo-summary > div{background:#fff; border:1px solid var(--line); border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; box-shadow:var(--shadow-soft);}
+.promo-summary b{font-family:var(--font-display); font-size:22px; font-weight:800; letter-spacing:-.02em; color:var(--ink); overflow-wrap:anywhere;}
+.promo-page .stat-toolbar{margin-bottom:18px;}
+.promo-page .stat-export-btn{text-decoration:none;}
+.promo-list{display:grid; grid-template-columns:1fr; gap:14px;}
+@media (min-width:760px){
+  .promo-summary{grid-template-columns:repeat(4, 1fr);}
+  .promo-list{grid-template-columns:1fr 1fr;}
+}
+
+/* El cupón: dos medias lunas sobre la línea perforada. */
+.promo-ticket{
+  --stub:104px;
+  position:relative; display:grid; grid-template-columns:minmax(0, 1fr) var(--stub); width:100%; padding:0; overflow:hidden;
+  text-align:left; font-family:inherit; color:var(--ink); background:#fff; border:1px solid rgba(36,28,19,.12); border-radius:20px;
+  transition:transform .18s var(--ease), border-color .18s;
+}
+button.promo-ticket{cursor:pointer;}
+button.promo-ticket:hover{border-color:rgba(36,28,19,.28);}
+button.promo-ticket:active{transform:scale(.985);}
+button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset:3px;}
+.promo-ticket-main{display:flex; flex-direction:column; gap:3px; padding:18px 18px 16px; min-width:0;}
+.promo-ticket-code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:20px; font-weight:800; letter-spacing:.08em; line-height:1.2; overflow-wrap:anywhere;}
+.promo-ticket-what{font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--amber-deep); margin-top:2px;}
+.promo-ticket-title{font-size:12.5px; font-weight:600; color:var(--ink-soft);}
+.promo-ticket-when{font-size:11.5px; font-weight:600; color:var(--ink-soft); margin-top:8px;}
+.promo-ticket-stub{position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:14px 10px; border-left:2px dashed rgba(36,28,19,.16); background:color-mix(in srgb, var(--amber) 6%, #fff); border-radius:0 19px 19px 0;}
+.promo-ticket-stub::before, .promo-ticket-stub::after{content:''; position:absolute; left:-10px; width:18px; height:18px; border-radius:50%; background:var(--cream); border:1px solid rgba(36,28,19,.12);}
+.promo-ticket-stub::before{top:-10px;}
+.promo-ticket-stub::after{bottom:-10px;}
+.promo-ticket-uses{display:flex; flex-direction:column; align-items:center; line-height:1;}
+.promo-ticket-uses b{font-family:var(--font-display); font-size:26px; font-weight:800; letter-spacing:-.02em;}
+.promo-ticket-uses small{font-size:11px; font-weight:700; color:var(--ink-soft); margin-top:3px;}
+.promo-ticket-meter{width:62px; height:4px; border-radius:4px; background:var(--cream-2); overflow:hidden;}
+.promo-ticket-meter i{display:block; height:100%; background:var(--amber); border-radius:4px;}
+.promo-ticket.is-scheduled .promo-ticket-stub{background:color-mix(in srgb, var(--tint-experiencia) 55%, #fff);}
+.promo-ticket.is-expired, .promo-ticket.is-soldout, .promo-ticket.is-paused{background:#FBFAF7;}
+.promo-ticket.is-expired .promo-ticket-stub, .promo-ticket.is-soldout .promo-ticket-stub, .promo-ticket.is-paused .promo-ticket-stub{background:var(--cream);}
+.promo-ticket.is-expired .promo-ticket-code, .promo-ticket.is-soldout .promo-ticket-code, .promo-ticket.is-paused .promo-ticket-code{color:var(--ink-soft);}
+.promo-ticket.is-expired .promo-ticket-what, .promo-ticket.is-soldout .promo-ticket-what, .promo-ticket.is-paused .promo-ticket-what{color:var(--ink-soft);}
+.promo-ticket.is-expired .promo-ticket-meter i, .promo-ticket.is-soldout .promo-ticket-meter i{background:var(--ink-soft);}
+
+.promo-pill{display:inline-block; padding:4px 9px; border-radius:100px; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; background:var(--cream-2); color:var(--ink-soft);}
+.promo-pill.is-active{background:var(--amber); color:var(--on-amber);}
+.promo-pill.is-scheduled{background:var(--tint-experiencia-deep); color:#fff;}
+.promo-pill.is-paused{background:var(--ink); color:var(--cream);}
+
+.promo-empty{display:flex; flex-direction:column; align-items:center; gap:18px; max-width:420px; margin:28px auto 0;}
+
+/* formulario */
+.promo-form-preview{margin-top:18px;}
+.promo-bubble{margin-top:10px; max-width:92%; padding:12px 14px; border-radius:18px 18px 18px 6px; background:var(--ink); color:var(--cream); font-size:14px; font-weight:600; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere;}
+.promo-code-input{display:flex; align-items:center; gap:8px;}
+.promo-code-input input{flex:1; min-width:0; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; font-size:17px !important; font-weight:800; letter-spacing:.08em; text-transform:uppercase;}
+.promo-code-input .pe-link-chip{flex:none;}
+.promo-kinds{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+.promo-kind{display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:12px; border:1px solid var(--line); border-radius:14px; background:var(--cream); font-family:inherit; font-size:13.5px; font-weight:700; color:var(--ink); cursor:pointer; text-align:left; transition:background .15s, border-color .15s, color .15s;}
+.promo-kind svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;}
+.promo-kind.active{background:var(--ink); border-color:var(--ink); color:var(--cream);}
+.promo-suffix span{padding:0 14px 0 0;}
+.promo-quick{margin-top:8px;}
+.promo-durations{margin-top:12px;}
+.promo-durations button{padding:8px 4px; font-size:12px; white-space:nowrap;}
+.promo-when{margin:12px 0 14px; font-size:12.5px; font-weight:600; color:var(--ink-soft);}
+.promo-when::first-letter{text-transform:uppercase;}
+.promo-count{display:block; margin-top:4px; text-align:right; font-size:11px; font-weight:600; color:var(--ink-soft);}
+.promo-form .pe-section .field:last-child{margin-bottom:14px;}
+
+/* detalle */
+.promo-detail-head{display:flex; flex-direction:column; align-items:center; text-align:center; padding-top:4px;}
+.promo-detail-code{display:inline-flex; flex-direction:column; align-items:center; gap:4px; margin:12px 0 10px; padding:14px 24px; border:2px dashed rgba(36,28,19,.2); border-radius:18px; background:#fff; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:28px; font-weight:800; letter-spacing:.1em; color:var(--ink); cursor:pointer; max-width:100%; overflow-wrap:anywhere;}
+.promo-detail-code span{font-family:var(--font-body); font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft);}
+.promo-detail-what{font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--amber-deep);}
+.promo-detail-rules{list-style:none; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:12px 0 0; padding:0;}
+.promo-detail-rules li{padding:5px 10px; border-radius:100px; background:var(--cream-2); font-size:12px; font-weight:600; color:var(--ink);}
+.promo-detail-kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;}
+.promo-detail-kpis > div{background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 14px;}
+.promo-detail-kpis b{display:block; margin-top:4px; font-family:var(--font-display); font-size:19px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere;}
+@media (min-width:600px){ .promo-detail-kpis{grid-template-columns:repeat(4, 1fr);} }
+.promo-days{display:grid; grid-template-columns:repeat(var(--n), minmax(0, 1fr)); gap:3px; height:112px; margin:14px 0 14px;}
+.promo-day{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.promo-day-bar{flex:1; display:flex; align-items:flex-end; border-radius:4px; background:var(--cream);}
+.promo-day-bar i{display:block; width:100%; border-radius:4px 4px 2px 2px; background:var(--amber);}
+.promo-day-label{height:11px; font-size:9.5px; font-weight:600; color:var(--ink-soft); text-align:center;}
+.promo-products, .promo-orders{list-style:none; margin:8px 0 12px; padding:0;}
+.promo-products li, .promo-orders li{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+.promo-products li:last-child, .promo-orders li:last-child{border-bottom:none;}
+.promo-products b{font-weight:800;}
+.promo-orders li > span:first-child{display:flex; flex-direction:column; min-width:0;}
+.promo-orders small{font-size:11.5px; font-weight:600; color:var(--ink-soft);}
+.promo-orders-amt{display:flex; flex-direction:column; align-items:flex-end; font-weight:800; white-space:nowrap;}
+.promo-orders-amt small{color:var(--tint-salado-deep);}
+.promo-empty-line{margin:10px 0 16px; font-size:13px; color:var(--ink-soft);}
+.promo-detail .promo-bubble{margin:12px 0 16px;}
+.promo-detail-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;}
+.promo-detail-actions .pill-btn-dark{display:inline-flex; align-items:center; gap:6px; text-decoration:none;}
+.promo-detail-actions svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+
+/* carrito */
+.promo-applied{display:flex; align-items:center; gap:12px; margin-top:20px; padding:10px 10px 10px 12px; border:1.5px dashed var(--amber); border-radius:14px; background:var(--amber-soft);}
+.promo-applied-icon{flex:none; width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--amber); color:var(--on-amber);}
+.promo-applied-icon svg, .order-promo svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linejoin:round;}
+.promo-applied-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.promo-applied-text b{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:14px; letter-spacing:.06em;}
+.promo-applied-text span{font-size:12.5px; font-weight:600; color:var(--ink-soft);}
+.promo-applied-remove{flex:none; width:30px; height:30px; border-radius:50%; border:none; background:rgba(255,255,255,.7); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);}
+.promo-applied-remove svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;}
+.promo-row input{text-transform:uppercase; letter-spacing:.04em;}
+.promo-row input::placeholder{text-transform:none; letter-spacing:0;}
+.promo-msg{margin:8px 2px 0; font-size:12.5px; font-weight:600; color:var(--err);}
+.cart-totals > div.cart-discount span{color:var(--tint-salado-deep); font-weight:700;}
+.promo-redeemed{max-width:340px; margin:18px auto 0; padding:16px 18px; border:1.5px dashed var(--amber); border-radius:18px; background:#fff; text-align:center;}
+.promo-redeemed-code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; font-weight:800; letter-spacing:.12em; color:var(--amber-deep);}
+.promo-redeemed p{margin:6px 0 0; font-size:15px; font-weight:600; line-height:1.45; color:var(--ink); white-space:pre-wrap;}
+
+/* órdenes */
+.order-promo{display:flex; align-items:center; gap:6px; margin:0 0 12px; padding:7px 10px; border-radius:10px; background:var(--amber-soft); font-size:12.5px; color:var(--ink);}
+.order-promo svg{width:14px; height:14px; color:var(--amber-deep);}
+.order-promo b{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.04em;}
+.order-promo-off{margin-left:auto; font-weight:800; color:var(--tint-salado-deep);}
+
+/* reporte */
+.rp-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; letter-spacing:.06em;}
+.rp-quote{margin:0; padding:10px 12px; border-radius:10px; background:var(--cream-2); font-size:12px; line-height:1.5; color:var(--ink); white-space:pre-wrap;}
+.rp-sub{display:block; margin-top:2px; font-size:10px; font-weight:600; color:var(--ink-soft);}
+.rp-legend .promo-pill{font-size:9px;}
+
+/* 404 */
+.not-found{min-height:70vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:48px 16px; text-align:center;}
+.not-found-code{font-family:var(--font-display); font-size:76px; font-weight:800; letter-spacing:-.04em; line-height:1; color:var(--amber);}
+.not-found h2{font-size:22px; margin-bottom:8px;}
