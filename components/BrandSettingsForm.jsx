@@ -4,18 +4,88 @@ import { useSettings } from '@/context/SettingsContext';
 import { useUploader } from '@/hooks/useUploader';
 import Uploader from './Uploader';
 import HoursPicker from './HoursPicker';
+import { CURRENCIES, currencyInfo } from '@/lib/currencies';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { formatMoney } from '@/lib/settingsDefaults';
 
 // Un mismo formulario sirve para el asistente inicial y para el panel del dueño.
 // group: 'identity' (nombre, logo) | 'contact' (dirección, horario, redes) | 'money' (moneda, prefijo gift cards)
 const FIELDS = {
   identity: ['brand_name', 'tagline', 'description'],
   contact: ['city', 'address', 'phone', 'whatsapp', 'email', 'instagram', 'facebook', 'hours'],
-  money: ['currency_symbol', 'currency_position', 'gift_card_prefix'],
+  money: ['currency_code', 'currency_symbol', 'currency_position', 'gift_card_prefix', 'extra_currencies'],
 };
 
 function initialsPrefix(name) {
   const letters = String(name || '').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   return (letters.slice(0, 3) || 'GC');
+}
+
+// Otras monedas que el cliente puede elegir al pagar. El dueño solo elige cuáles: la tasa la
+// busca el servidor cada día (Banreservas para dólar y euro, un servicio abierto para las demás).
+const MAX_EXTRA_CURRENCIES = 5;
+
+function ExtraCurrencies({ baseCode, value, onChange }) {
+  const codes = value.map((c) => c.code).filter((c) => c && c !== baseCode);
+  const { rates, loading } = useExchangeRates(baseCode, codes);
+  const update = (i, patch) => onChange(value.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const taken = new Set([baseCode, ...codes]);
+  const firstFree = CURRENCIES.find((c) => !taken.has(c.code));
+
+  return (
+    <div className="field">
+      <label>Otras monedas para pagar (opcional)</label>
+      <div className="currency-list">
+        {value.map((c, i) => {
+          const info = currencyInfo(c.code);
+          const r = rates[c.code];
+          return (
+            <div className="currency-row" key={i}>
+              <div className="currency-row-top">
+                <label>
+                  <span>Moneda</span>
+                  <select value={c.code || ''} onChange={(e) => update(i, { code: e.target.value })}>
+                    {CURRENCIES.filter((x) => x.code === c.code || !taken.has(x.code)).map((x) => (
+                      <option key={x.code} value={x.code}>{x.name} ({x.symbol})</option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" className="hours-remove" onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label="Quitar esta moneda">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                </button>
+              </div>
+              <p className="currency-rate-note">
+                {c.code === baseCode
+                  ? 'Es tu moneda principal: elige otra.'
+                  : r
+                    ? <>Tasa de hoy: <b>1 {info ? info.symbol : c.code} = {formatMoney(r.rate)}</b> · {r.source}</>
+                    : loading ? 'Buscando la tasa de hoy…' : 'No se pudo obtener la tasa ahora. Mientras tanto, esta moneda no aparece al pagar.'}
+              </p>
+              <div className="seg-buttons seg-buttons-sm" role="group" aria-label="Dónde va el símbolo">
+                {[['before', 'Antes del precio'], ['after', 'Después del precio']].map(([pos, label]) => (
+                  <button key={pos} type="button" aria-pressed={(c.position || 'before') === pos} className={(c.position || 'before') === pos ? 'active' : ''} onClick={() => update(i, { position: pos })}>{label}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {value.length < MAX_EXTRA_CURRENCIES && firstFree && (
+        <button type="button" className="hours-add" onClick={() => onChange([...value, { code: firstFree.code, position: 'before' }])}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Agregar moneda
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Ejemplo de precio con el mismo formato que usa el menú (ver formatMoney en lib/settingsDefaults).
+function pricePreview(form) {
+  const symbol = form.currency_symbol || '$';
+  let amount;
+  try { amount = (1500).toLocaleString(form.locale || 'es-DO'); } catch (e) { amount = '1500'; }
+  return form.currency_position === 'after' ? `${amount}${symbol}` : `${symbol}${amount}`;
 }
 
 export default function BrandSettingsForm({ group = 'identity', onSaved, submitLabel = 'Guardar' }) {
@@ -42,7 +112,7 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
     e.preventDefault();
     setMsg({ type: '', text: '' });
     const patch = {};
-    FIELDS[group].forEach((k) => { patch[k] = String(form[k] ?? '').trim(); });
+    FIELDS[group].forEach((k) => { if (k !== 'extra_currencies') patch[k] = String(form[k] ?? '').trim(); });
 
     if (group === 'identity') {
       if (!patch.brand_name) { setMsg({ type: 'error', text: 'Escribe el nombre de tu negocio.' }); return; }
@@ -57,6 +127,15 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
       if (!patch.currency_symbol) { setMsg({ type: 'error', text: 'Escribe el símbolo de tu moneda (por ejemplo RD$ o $).' }); return; }
       patch.currency_symbol = patch.currency_symbol.slice(0, 5);
       if (!['before', 'after'].includes(patch.currency_position)) patch.currency_position = 'before';
+      if (!currencyInfo(patch.currency_code)) patch.currency_code = 'DOP';
+      const extras = Array.isArray(form.extra_currencies) ? form.extra_currencies : [];
+      const clean = [];
+      for (const c of extras) {
+        const info = currencyInfo(c.code);
+        if (!info || info.code === patch.currency_code || clean.some((x) => x.code === info.code)) continue;
+        clean.push({ code: info.code, name: info.name, symbol: info.symbol, position: c.position === 'after' ? 'after' : 'before' });
+      }
+      patch.extra_currencies = clean;
     }
 
     setBusy(true);
@@ -105,14 +184,45 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
 
       {group === 'money' && (
         <>
-          <div className="field"><label htmlFor="bfSym">Símbolo de la moneda</label><input id="bfSym" type="text" value={form.currency_symbol || ''} onChange={set('currency_symbol')} placeholder="RD$, $, €…" maxLength={5} /></div>
           <div className="field">
-            <label htmlFor="bfPos">Dónde va el símbolo</label>
-            <select id="bfPos" value={form.currency_position || 'before'} onChange={set('currency_position')}>
-              <option value="before">Antes del precio (RD$ 1,500)</option>
-              <option value="after">Después del precio (1,500 $)</option>
+            <label htmlFor="bfCode">Tu moneda</label>
+            <select
+              id="bfCode"
+              value={form.currency_code || 'DOP'}
+              onChange={(e) => {
+                const info = currencyInfo(e.target.value);
+                setForm((f) => ({ ...f, currency_code: e.target.value, currency_symbol: info ? info.symbol : f.currency_symbol }));
+              }}
+            >
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
             </select>
           </div>
+          <div className="field"><label htmlFor="bfSym">Símbolo de la moneda</label><input id="bfSym" type="text" value={form.currency_symbol || ''} onChange={set('currency_symbol')} placeholder="RD$, $, €…" maxLength={5} /></div>
+          <div className="field">
+            <label id="bfPosLabel">Dónde va el símbolo</label>
+            <div className="seg-buttons" role="group" aria-labelledby="bfPosLabel">
+              {[['before', 'Antes del precio'], ['after', 'Después del precio']].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={(form.currency_position || 'before') === value}
+                  className={(form.currency_position || 'before') === value ? 'active' : ''}
+                  onClick={() => setForm((f) => ({ ...f, currency_position: value }))}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="money-preview">
+              <span>Así se verán tus precios</span>
+              <b>{pricePreview(form)}</b>
+            </div>
+          </div>
+          <ExtraCurrencies
+            baseCode={form.currency_code || 'DOP'}
+            value={Array.isArray(form.extra_currencies) ? form.extra_currencies : []}
+            onChange={(extra_currencies) => setForm((f) => ({ ...f, extra_currencies }))}
+          />
           <div className="field">
             <label htmlFor="bfPref">Prefijo de las gift cards</label>
             <input id="bfPref" type="text" value={form.gift_card_prefix || ''} onChange={set('gift_card_prefix')} placeholder="Ej. LCS" maxLength={5} />

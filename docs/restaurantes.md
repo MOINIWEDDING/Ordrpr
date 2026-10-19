@@ -104,5 +104,7 @@ Desde ese momento recibe cada actualización junto con los demás.
 | `20261018214352_seguridad_pay_with_gift_card_monto.sql` | Pagar con gift card rechaza montos negativos. |
 | `20261018214400_seguridad_revocar_funciones_anon.sql` | Las funciones que requieren sesión no se pueden llamar sin iniciarla. |
 | `20261018214422_seguridad_pedidos_insert.sql` | Un pedido nuevo no puede cargarse a otra cuenta ni crearse ya avanzado. |
+| `20261019120000_monedas_extra.sql` | Otras monedas para pagar: las que agrega el dueño y la que eligió el cliente en cada pedido. |
+| `20261019150000_codigo_moneda.sql` | Código de la moneda principal, para buscar las tasas de cambio del día. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

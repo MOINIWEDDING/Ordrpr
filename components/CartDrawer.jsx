@@ -9,6 +9,9 @@ import { useTables } from '@/hooks/useTables';
 import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
+import { useSettings } from '@/context/SettingsContext';
+import { paymentCurrencies, extraCurrencyCodes, convertFromBase, formatIn } from '@/lib/settingsDefaults';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
@@ -29,6 +32,12 @@ export default function CartDrawer() {
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
   const guestInfo = useGuestInfo();
   const { showToast } = useToast();
+  const { settings } = useSettings();
+  const { rates } = useExchangeRates(settings.currency_code || 'DOP', extraCurrencyCodes(settings));
+  const currencies = paymentCurrencies(settings, rates); // solo las monedas con tasa de hoy
+  const [currencyIndex, setCurrencyIndex] = useState(0); // en qué moneda quiere pagar el cliente (0 = la principal)
+  const currency = currencies[currencyIndex] || currencies[0];
+  const inCurrency = (n) => formatIn(convertFromBase(n, currency), currency);
   const [promo, setPromo] = useState('');
   const [orderType, setOrderType] = useState(null); // 'pickup' | 'dine_in' | null
   const [partySize, setPartySize] = useState(1);
@@ -36,7 +45,7 @@ export default function CartDrawer() {
   const [placeError, setPlaceError] = useState('');
   const [success, setSuccess] = useState(false);
   const [earlyBirdResult, setEarlyBirdResult] = useState(null); // {type:'winner'|'in_window_no_win', prize, discountApplied} | null
-  const [lastOrderSummary, setLastOrderSummary] = useState(null); // {orderType, tableNumber, partySize, total} — copia para el mensaje de éxito
+  const [lastOrderSummary, setLastOrderSummary] = useState(null); // {orderType, tableNumber, partySize, total, currency} — copia para el mensaje de éxito
 
   // El sexo/edad del invitado se recolectan al entrar (después de "Continuar
   // como invitado"), nunca aquí en el checkout — si por algo faltan, el pedido
@@ -133,14 +142,26 @@ export default function CartDrawer() {
       customer_age: effectiveAge || null,
       party_size: orderType === 'dine_in' ? partySize : 1,
     };
+    // Pago en otra moneda: se guarda con el tipo de cambio y el total convertido para que el local sepa cuánto cobrar.
+    // La gift card siempre se descuenta en la moneda principal.
+    const paidCurrency = method === 'gift_card' || currency.base ? null : currency;
+    if (paidCurrency) {
+      payload.payment_currency = {
+        code: paidCurrency.code, name: paidCurrency.name, symbol: paidCurrency.symbol, position: paidCurrency.position,
+        rate: paidCurrency.rate, source: paidCurrency.source, total: convertFromBase(finalTotal, paidCurrency),
+      };
+    }
 
     if (BARRO_CONFIGURED) {
-      let { error } = await sb.from('orders').insert(payload);
-      // si la base de datos aún no tiene la columna push_ref (falta ejecutar el SQL de notificaciones), el pedido se envía igual
-      if (error && payload.push_ref && /push_ref/i.test(error.message || '')) {
-        const withoutRef = { ...payload };
-        delete withoutRef.push_ref;
-        ({ error } = await sb.from('orders').insert(withoutRef));
+      let sent = payload;
+      let { error } = await sb.from('orders').insert(sent);
+      // si la base de datos aún no tiene alguna columna opcional (falta aplicar su migración), el pedido se envía sin ella
+      for (const col of ['push_ref', 'payment_currency']) {
+        if (error && sent[col] !== undefined && new RegExp(col, 'i').test(error.message || '')) {
+          sent = { ...sent };
+          delete sent[col];
+          ({ error } = await sb.from('orders').insert(sent));
+        }
       }
       if (error) { setPlaceError('No se pudo enviar el pedido: ' + error.message); setPlacing(false); return; }
       if (orderId) rememberGuestOrder(orderId);
@@ -156,7 +177,7 @@ export default function CartDrawer() {
 
     setPlacing(false);
     setSuccess(true);
-    setLastOrderSummary({ orderType, tableNumber, partySize: effectivePartySize, total: finalTotal });
+    setLastOrderSummary({ orderType, tableNumber, partySize: effectivePartySize, total: finalTotal, currency: paidCurrency });
     clear();
     setOrderType(null);
     setPartySize(1);
@@ -215,6 +236,11 @@ export default function CartDrawer() {
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>
                   {lastOrderSummary?.orderType === 'pickup' ? 'Tu pedido está listo para recoger en el local.' : `Tu pedido ya va camino a ${lastOrderSummary?.tableNumber}.`}
                 </motion.p>
+                {lastOrderSummary?.currency && (
+                  <motion.p className="order-success-currency" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+                    Vas a pagar <b>{formatIn(convertFromBase(lastOrderSummary.total, lastOrderSummary.currency), lastOrderSummary.currency)}</b> ({money(lastOrderSummary.total)})
+                  </motion.p>
+                )}
                 {lastOrderSummary?.partySize > 1 && (
                   <motion.div
                     className="split-bill-box"
@@ -222,8 +248,12 @@ export default function CartDrawer() {
                   >
                     <span className="eyebrow">Cuenta dividida entre {lastOrderSummary.partySize}</span>
                     <div className="split-bill-row">
-                      <span>{money(lastOrderSummary.total)} ÷ {lastOrderSummary.partySize} personas</span>
-                      <span className="split-bill-each">{money(Math.round(lastOrderSummary.total / lastOrderSummary.partySize))} c/u</span>
+                      <span>{formatIn(convertFromBase(lastOrderSummary.total, lastOrderSummary.currency), lastOrderSummary.currency)} ÷ {lastOrderSummary.partySize} personas</span>
+                      <span className="split-bill-each">
+                        {lastOrderSummary.currency
+                          ? formatIn(Math.round((convertFromBase(lastOrderSummary.total, lastOrderSummary.currency) / lastOrderSummary.partySize) * 100) / 100, lastOrderSummary.currency)
+                          : money(Math.round(lastOrderSummary.total / lastOrderSummary.partySize))} c/u
+                      </span>
                     </div>
                     <button type="button" className="btn btn-amber btn-block" style={{ marginTop: 16 }} onClick={() => { setSuccess(false); closeDrawer(); }}>Listo</button>
                   </motion.div>
@@ -340,13 +370,37 @@ export default function CartDrawer() {
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => showToast('Los códigos promocionales llegan pronto.')}>Aplicar</button>
                       </div>
 
+                      {currencies.length > 1 && (
+                        <div className="currency-switch">
+                          <span className="currency-switch-label">Pagar en</span>
+                          <div className="currency-switch-track" role="radiogroup" aria-label="Moneda para pagar">
+                            {currencies.map((c, i) => (
+                              <button
+                                key={`${c.symbol}-${i}`}
+                                type="button"
+                                role="radio"
+                                aria-checked={i === currencyIndex}
+                                className={i === currencyIndex ? 'active' : ''}
+                                onClick={() => setCurrencyIndex(i)}
+                              >
+                                {i === currencyIndex && <motion.span layoutId="currency-pill" className="currency-switch-pill" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+                                <span className="currency-switch-text">{c.symbol}{c.name ? ` · ${c.name}` : ''}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="cart-totals">
-                        <div><span>Subtotal</span><span>{money(subtotal)}</span></div>
+                        <div><span>Subtotal</span><span>{inCurrency(subtotal)}</span></div>
                         {taxCharges.map((c, i) => (
-                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{money(Math.round((subtotal * (Number(c.percent) || 0)) / 100))}</span></div>
+                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((subtotal * (Number(c.percent) || 0)) / 100))}</span></div>
                         ))}
-                        <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : money(DELIVERY)}</span></div>
-                        <div className="cart-total-final"><span>Total</span><span>{money(total)}</span></div>
+                        <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
+                        <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
+                        {!currency.base && (
+                          <div className="cart-total-base"><span>1 {currency.symbol} = {money(currency.rate)}{currency.source === 'Banreservas' ? ' · tasa Banreservas de hoy' : ' · tasa de hoy'}</span><span>Equivale a {money(total)}</span></div>
+                        )}
                       </div>
 
                       {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
@@ -371,6 +425,7 @@ export default function CartDrawer() {
                       </div>
                       <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
                         Efectivo y tarjeta se cobran en persona en el local — solo estás avisando cómo vas a pagar.
+                        {!currency.base && ` La gift card se descuenta en ${currencies[0].symbol}.`}
                       </p>
                     </>
                   )}
