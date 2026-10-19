@@ -161,6 +161,16 @@ section{padding:46px 0;}
 .p-tagline{position:absolute; left:50%; bottom:12px; transform:translateX(-50%); background:rgba(255,255,255,0.24); backdrop-filter:blur(6px); color:#fff; font-size:10px; padding:6px 14px; border-radius:100px; font-weight:700; text-transform:uppercase; white-space:nowrap; z-index:2;}
 .p-admin{position:absolute; top:10px; right:10px; display:none; gap:8px; z-index:3;}
 .admin-on .p-admin{display:flex;}
+.icon-btn{width:34px; height:34px; flex:none; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--ink); display:inline-flex; align-items:center; justify-content:center; box-shadow:var(--shadow-soft); cursor:pointer; padding:0; transition:transform .15s var(--ease), border-color .2s;}
+.icon-btn:hover{border-color:rgba(36,28,19,0.28);}
+.icon-btn:active{transform:scale(.94);}
+.icon-btn.danger{color:var(--err, #A3402F);}
+.icon-btn .icon, .icon-btn svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;}
+.add-card{flex:0 0 150px; align-self:stretch; min-height:220px; scroll-snap-align:start; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; border:1.5px dashed rgba(36,28,19,0.22); border-radius:var(--radius-lg); background:color-mix(in srgb, var(--amber) 5%, #fff); color:var(--ink); font-family:var(--font-ui); font-size:13px; font-weight:700; text-align:center; padding:16px; cursor:pointer; transition:border-color .2s, background .2s;}
+.add-card:hover{border-color:var(--amber); background:color-mix(in srgb, var(--amber) 9%, #fff);}
+.add-card .plus{width:44px; height:44px; border-radius:50%; background:var(--amber); color:var(--on-amber); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-soft);}
+.add-card .plus .icon{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;}
+.carta-footnote:empty::before{content:'Nota al pie del menú (opcional)'; opacity:.55;}
 .p-admin .icon-btn{width:38px; height:38px; border-radius:50%; border:none; background:rgba(255,255,255,0.94); display:flex; align-items:center; justify-content:center; color:var(--ink); box-shadow:var(--shadow-soft);}
 .p-admin .icon-btn.danger{color:var(--err);}
 .p-info{position:relative; background:var(--tint-deep); color:#fff; padding:16px 18px 18px; display:flex; flex-direction:column; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
@@ -917,6 +927,7 @@ header{display:none;}
   border:2px solid #fff; box-shadow:var(--shadow-soft); opacity:0; transition:opacity .15s;
 }
 .editable-text-wrap:hover .editable-text-pencil, .editable-text-wrap:focus-within .editable-text-pencil{opacity:1;}
+@media (hover: none){ .editable-text-pencil{opacity:1;} } /* en teléfonos no hay "pasar el cursor" */
 .editable-text-pencil svg{width:12px; height:12px; stroke:currentColor; fill:none; stroke-width:2;}
 .editable-text-editing{display:block; width:100%;}
 .editable-text-editing.inline{display:inline-block; width:auto;}
