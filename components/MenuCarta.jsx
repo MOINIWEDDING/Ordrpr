@@ -7,6 +7,8 @@ import { useMenuItems } from '@/hooks/useMenuItems';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { sanitizeHtml, scopeCss } from '@/lib/customContent';
+import { SiteContentProvider, useSiteContent } from '@/context/SiteContentContext';
+import EditableText from './EditableText';
 import { useCategories } from '@/hooks/useCategories';
 import ProductModal from './ProductModal';
 import CategoryModal from './CategoryModal';
@@ -128,7 +130,9 @@ export default function MenuCarta() {
 
       {customHtml.bottom && <div className="carta-custom-bottom" dangerouslySetInnerHTML={{ __html: customHtml.bottom }} />}
 
-      <p className="carta-footnote">Pregunta por nuestras cervezas artesanales y salsas de la casa disponibles. Precios no incluyen impuestos.</p>
+      <SiteContentProvider>
+        <MenuFootnote isStaff={isStaff} />
+      </SiteContentProvider>
 
       <AnimatePresence>
         {viewingItem && (
@@ -157,6 +161,13 @@ export default function MenuCarta() {
       </AnimatePresence>
     </div>
   );
+}
+
+// Nota al pie del menú: vacía por defecto; el dueño la escribe con el lápiz y el cliente solo la ve si existe.
+function MenuFootnote({ isStaff }) {
+  const { get } = useSiteContent();
+  if (!isStaff && !get('menu_footnote', '')) return null;
+  return <EditableText contentKey="menu_footnote" defaultValue="" className="carta-footnote" multiline />;
 }
 
 function CartaRow({ item, isStaff, onOpen, onEdit, onDelete }) {

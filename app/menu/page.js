@@ -1,5 +1,4 @@
 import MenuCarta from '@/components/MenuCarta';
-import BrandName from '@/components/BrandName';
 import CurrencySwitcher from '@/components/CurrencySwitcher';
 
 export const metadata = { title: 'Menú' };
@@ -13,13 +12,6 @@ export default function MenuPage() {
           <MenuCarta />
         </div>
       </section>
-
-      <footer>
-        <div className="wrap footer-bottom" style={{ border: 'none', paddingTop: 0 }}>
-          <span>© {new Date().getFullYear()} <BrandName />. Todos los derechos reservados.</span>
-          <span><a href="/">Volver al inicio</a></span>
-        </div>
-      </footer>
     </>
   );
 }

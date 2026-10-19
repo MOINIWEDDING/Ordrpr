@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useUploader } from '@/hooks/useUploader';
 import { isVideoUrl } from '@/lib/upload';
 import Modal from './Modal';
@@ -125,6 +126,8 @@ function OfferModal({ offer, onClose, onSaved }) {
   const [title, setTitle] = useState(offer ? offer.title : '');
   const [subtitle, setSubtitle] = useState(offer ? (offer.subtitle || '') : '');
   const [ctaText, setCtaText] = useState(offer ? (offer.cta_text || 'Ver menú') : 'Ver menú');
+  const { settings } = useSettings();
+  const linkShortcuts = LINK_SHORTCUTS.filter((l) => l.href !== '/nosotros' || settings.show_nosotros !== false);
   const [ctaLink, setCtaLink] = useState(offer ? (offer.cta_link || '/menu') : '/menu');
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [saving, setSaving] = useState(false);
@@ -222,7 +225,7 @@ function OfferModal({ offer, onClose, onSaved }) {
           <div className="field">
             <label htmlFor="offerLink">Lleva a</label>
             <div className="pe-link-chips">
-              {LINK_SHORTCUTS.map((l) => (
+              {linkShortcuts.map((l) => (
                 <button key={l.href} type="button" className={`pe-link-chip${ctaLink === l.href ? ' active' : ''}`} onClick={() => setCtaLink(l.href)}>{l.label}</button>
               ))}
             </div>

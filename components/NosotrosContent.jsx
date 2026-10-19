@@ -8,11 +8,26 @@ import EditableButton from '@/components/EditableButton';
 import Reveal from '@/components/Reveal';
 import { SiteContentProvider } from '@/context/SiteContentContext';
 import { useSettings } from '@/context/SettingsContext';
+import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 export default function NosotrosContent() {
-  const { settings } = useSettings();
+  const { settings, loading } = useSettings();
+  const { isStaff } = useAuth();
+  const hidden = settings.show_nosotros === false;
+  // oculta: los clientes ven un aviso; el equipo la sigue viendo para poder editarla
+  if (hidden && !isStaff) {
+    if (loading) return null;
+    return (
+      <section className="wrap nosotros-off">
+        <h2>Esta página no está disponible</h2>
+        <Link href="/" className="btn btn-amber">Ir al inicio</Link>
+      </section>
+    );
+  }
   return (
     <SiteContentProvider>
+      {hidden && <div className="wrap nosotros-hidden-note">Oculta para tus clientes</div>}
       <section className="historia" id="nosotros" style={{ paddingTop: 28 }}>
         <div className="wrap historia-grid">
           <Reveal className="historia-photos">

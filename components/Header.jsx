@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
 
 const GUEST_LINKS = [
@@ -29,8 +30,10 @@ export default function Header() {
   const { count, openDrawer } = useCart();
   const { profile, isStaff, isComensal } = useAuth();
   const { unseenCount } = useOrdersNotify();
+  const { settings } = useSettings();
   const [solid, setSolid] = useState(false);
-  const links = isStaff ? STAFF_LINKS : isComensal ? COMENSAL_LINKS : GUEST_LINKS;
+  const links = (isStaff ? STAFF_LINKS : isComensal ? COMENSAL_LINKS : GUEST_LINKS)
+    .filter((l) => l.href !== '/nosotros' || settings.show_nosotros !== false);
 
   useEffect(() => {
     function onScroll() { setSolid(window.scrollY > 40); }

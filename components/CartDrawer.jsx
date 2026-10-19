@@ -12,6 +12,7 @@ import { useToast } from '@/context/ToastContext';
 import { convertFromBase, formatIn } from '@/lib/settingsDefaults';
 import { useCurrency, linePriceFor } from '@/context/CurrencyContext';
 import CurrencySwitcher from './CurrencySwitcher';
+import { describeOptions } from '@/lib/productOptions';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
@@ -294,7 +295,7 @@ export default function CartDrawer() {
                               <div className="cart-line-body">
                                 <h4>{l.name}</h4>
                                 {l.options && l.options.length > 0 && (
-                                  <span className="cart-line-options">{l.options.map((o) => o.label).join(' · ')}</span>
+                                  <span className="cart-line-options">{describeOptions(l.options)}</span>
                                 )}
                                 <span className="cart-line-price">{inCurrency(linePriceFor(l, currency))}</span>
                               </div>
