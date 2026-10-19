@@ -106,5 +106,6 @@ Desde ese momento recibe cada actualización junto con los demás.
 | `20261018214422_seguridad_pedidos_insert.sql` | Un pedido nuevo no puede cargarse a otra cuenta ni crearse ya avanzado. |
 | `20261019120000_monedas_extra.sql` | Otras monedas para pagar: las que agrega el dueño y la que eligió el cliente en cada pedido. |
 | `20261019150000_codigo_moneda.sql` | Código de la moneda principal, para buscar las tasas de cambio del día. |
+| `20261019180000_precios_por_moneda.sql` | Precio propio de cada producto en otra moneda (por ejemplo US$6). |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
-import { money } from '@/hooks/useMenuItems';
+import { useCurrency, basePriceFor } from '@/context/CurrencyContext';
 
 export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   const { addItem } = useCart();
+  const { currency, format } = useCurrency();
   const { isFav, toggle } = useFavorites();
   const [qty, setQty] = useState(1);
   const options = Array.isArray(item.options) ? item.options : [];
@@ -14,7 +15,8 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   const tags = (item.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
   const fav = isFav(item.id);
 
-  const unitPrice = item.price + selected.reduce((s, o) => s + (o.price || 0), 0);
+  // precio de una unidad en la moneda elegida: el precio especial del producto (si tiene) más las opciones
+  const unitPrice = basePriceFor(item, currency) + selected.reduce((s, o) => s + (o.price || 0), 0);
 
   function chooseOption(groupName, choice) {
     setSelected((prev) => prev.map((o) => (o.group === groupName ? { group: groupName, ...choice } : o)));
@@ -55,7 +57,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
             <p className="pd-sub">{item.category}{tags.length ? ` · ${tags.join(', ')}` : ''}</p>
 
             <div className="pd-price-row">
-              <span className="pd-price">{money(unitPrice)}</span>
+              <span className="pd-price">{format(unitPrice)}</span>
               <div className="qty-stepper">
                 <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Menos">–</button>
                 <span>{qty}</span>
@@ -76,7 +78,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
                         className={`pd-option-pill${isActive ? ' active' : ''}`}
                         onClick={() => chooseOption(group.name, choice)}
                       >
-                        {choice.label}{choice.price > 0 ? ` +${money(choice.price)}` : ''}
+                        {choice.label}{choice.price > 0 ? ` +${format(choice.price)}` : ''}
                       </button>
                     );
                   })}

@@ -8,6 +8,7 @@ import { FavoritesProvider } from '@/context/FavoritesContext';
 import { OrdersNotifyProvider } from '@/context/OrdersNotifyContext';
 import { BranchProvider } from '@/context/BranchContext';
 import { GuestInfoProvider } from '@/context/GuestInfoContext';
+import { CurrencyProvider } from '@/context/CurrencyContext';
 import BodyAdminSync from '@/components/BodyAdminSync';
 import StaffBanner from '@/components/StaffBanner';
 import SetupBanner from '@/components/SetupBanner';
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         <SettingsProvider initial={settings}>
+        <CurrencyProvider>
         <AuthProvider>
           <FavoritesProvider>
             <CartProvider>
@@ -79,6 +81,7 @@ export default async function RootLayout({ children }) {
             </CartProvider>
           </FavoritesProvider>
         </AuthProvider>
+        </CurrencyProvider>
         </SettingsProvider>
       </body>
     </html>

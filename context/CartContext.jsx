@@ -36,7 +36,8 @@ export function CartProvider({ children }) {
 
   // selectedOptions: [{group, label, price}] — ya elegidas (leche, sirup, tamaño, etc.)
   const addItem = useCallback((item, qty = 1, selectedOptions = []) => {
-    const unitPrice = item.price + selectedOptions.reduce((s, o) => s + (o.price || 0), 0);
+    const optionsTotal = selectedOptions.reduce((s, o) => s + (o.price || 0), 0);
+    const unitPrice = item.price + optionsTotal;
     const lineKey = makeLineKey(item.id, selectedOptions);
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.lineKey === lineKey);
@@ -48,6 +49,8 @@ export function CartProvider({ children }) {
       return [...prev, {
         lineKey, id: item.id, name: item.name, price: unitPrice, image_url: item.image_url,
         qty, notes: '', is_beverage: !!item.is_beverage, options: selectedOptions,
+        // para recalcular el precio si se paga en otra moneda con precio especial (ver CurrencyContext)
+        base_price: item.price, options_total: optionsTotal, currency_prices: item.currency_prices || {},
       }];
     });
     setDrawerOpen(true);
