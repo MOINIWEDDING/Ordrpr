@@ -19,6 +19,7 @@
   --cream-on-dark:#F3ECDD;
 
   --err:#B8492A;
+  --ok:#3D7A3A;
   --radius:14px;
   --radius-lg:22px;
   --shadow: 0 20px 44px -22px rgba(36,28,19,0.32);
@@ -806,8 +807,8 @@ header{display:none;}
 .pay-soon{display:block; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin-top:4px;}
 
 .order-success{display:flex; flex-direction:column; align-items:center; text-align:center; padding:60px 30px 50px;}
-.order-check{width:84px; height:84px; border-radius:50%; background:var(--ok); display:flex; align-items:center; justify-content:center; margin-bottom:22px;}
-.order-check svg{width:42px; height:42px; stroke:#fff; fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;}
+.order-check{width:84px; height:84px; border-radius:50%; background:var(--amber); display:flex; align-items:center; justify-content:center; margin-bottom:22px;}
+.order-check svg{width:42px; height:42px; stroke:var(--on-amber); fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;}
 .order-success h3{font-size:21px;}
 .order-success p{margin-top:8px; font-size:14px; color:var(--ink-soft);}
 
@@ -1628,3 +1629,8 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 .rp-quote{margin:0; padding:10px 12px; border-radius:10px; background:var(--cream-2); font-size:12px; line-height:1.5; color:var(--ink); white-space:pre-wrap;}
 .rp-sub{display:block; margin-top:2px; font-size:10px; font-weight:600; color:var(--ink-soft);}
 .rp-legend .promo-pill{font-size:9px;}
+
+/* 404 */
+.not-found{min-height:70vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:48px 16px; text-align:center;}
+.not-found-code{font-family:var(--font-display); font-size:76px; font-weight:800; letter-spacing:-.04em; line-height:1; color:var(--amber);}
+.not-found h2{font-size:22px; margin-bottom:8px;}

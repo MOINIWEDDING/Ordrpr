@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useBranch } from '@/context/BranchContext';
@@ -26,6 +27,9 @@ export default function SetupPage() {
   const [error, setError] = useState('');
 
   if (!authReady) return <section className="cuenta-page"><div className="wrap"><p className="muted">Cargando…</p></div></section>;
+
+  // Cuando el negocio ya tiene dueño (o terminó la configuración), para los demás esta página no existe.
+  if ((settings.owner_ready || settings.setup_completed) && !(profile && isStaff)) notFound();
 
   if (!profile || !isStaff) {
     return (

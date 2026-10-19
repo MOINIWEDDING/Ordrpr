@@ -110,5 +110,6 @@ Desde ese momento recibe cada actualización junto con los demás.
 | `20261019210000_inicio_y_personalizacion.sql` | Ocultar y ordenar en el inicio, color de fondo y CSS/HTML propios del menú tipo carta. |
 | `20261020090000_mostrar_nosotros.sql` | El dueño puede ocultar la página Nosotros a los clientes. |
 | `20261020120000_codigos_promocionales.sql` | Códigos promocionales: los códigos, cada canje y el código usado en cada pedido. |
+| `20261020150000_setup_con_dueno.sql` | En cuanto existe una cuenta de dueño, /setup da 404 a todos los demás. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.
