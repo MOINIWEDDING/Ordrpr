@@ -5,8 +5,6 @@ import { useUploader } from '@/hooks/useUploader';
 import Uploader from './Uploader';
 import Modal from './Modal';
 import { useSettings } from '@/context/SettingsContext';
-import { useCurrency } from '@/context/CurrencyContext';
-import { convertFromBase, formatIn } from '@/lib/settingsDefaults';
 
 export default function ProductModal({ item, defaultCategory, categories, onClose, onSaved }) {
   const uploader = useUploader({ requireTransparent: true });
@@ -20,10 +18,9 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
   const [isBeverage, setIsBeverage] = useState(item ? !!item.is_beverage : false);
   const [msg, setMsg] = useState({ text: '', type: '' });
   const { settings } = useSettings();
-  const { currencies } = useCurrency(); // monedas con tasa de hoy, para mostrar a cuánto equivale cada precio especial
   const extraCurrencies = Array.isArray(settings.extra_currencies) ? settings.extra_currencies.filter((c) => c && c.code) : [];
   const baseSymbol = settings.currency_symbol || '$';
-  // Precio especial por moneda, escrito en moneda principal: { USD: 350 } = si pagan en dólares se cobra el equivalente de RD$350.
+  // Precio especial por moneda, escrito en esa moneda: { USD: 6 } = si pagan en dólares, cuesta US$6.
   const [currencyPrices, setCurrencyPrices] = useState(() => {
     const saved = (item && item.currency_prices) || {};
     const out = {};
@@ -81,29 +78,18 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
           {extraCurrencies.length > 0 && (
             <div className="field">
               <label>Precio especial por moneda (opcional)</label>
-              <p className="currency-price-hint">Escríbelo en {baseSymbol}. Si lo dejas vacío, se cobra el precio normal convertido con la tasa del día.</p>
               <div className="currency-price-list">
-                {extraCurrencies.map((c) => {
-                  const live = currencies.find((x) => x.code === c.code);
-                  const n = parseFloat(currencyPrices[c.code]);
-                  return (
-                    <div className="currency-price-row" key={c.code}>
-                      <label htmlFor={`pPrice-${c.code}`}>Si pagan en {c.symbol}</label>
-                      <input
-                        id={`pPrice-${c.code}`}
-                        type="number" min="0" step="1" inputMode="numeric"
-                        placeholder={price ? String(price) : ''}
-                        value={currencyPrices[c.code] || ''}
-                        onChange={(e) => setCurrencyPrices((p) => ({ ...p, [c.code]: e.target.value }))}
-                      />
-                      <span className="currency-price-eq">
-                        {live && (n > 0 || parseFloat(price) > 0)
-                          ? `≈ ${formatIn(convertFromBase(n > 0 ? n : parseFloat(price), live), live)} hoy`
-                          : ''}
-                      </span>
-                    </div>
-                  );
-                })}
+                {extraCurrencies.map((c) => (
+                  <div className="currency-price-row" key={c.code}>
+                    <label htmlFor={`pPrice-${c.code}`}>Precio en {c.symbol}</label>
+                    <input
+                      id={`pPrice-${c.code}`}
+                      type="number" min="0" step="0.01" inputMode="decimal"
+                      value={currencyPrices[c.code] || ''}
+                      onChange={(e) => setCurrencyPrices((p) => ({ ...p, [c.code]: e.target.value }))}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

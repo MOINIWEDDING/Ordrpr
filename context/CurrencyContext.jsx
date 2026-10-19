@@ -6,16 +6,18 @@ import { paymentCurrencies, extraCurrencyCodes, convertFromBase, formatIn } from
 
 // La moneda en la que el visitante quiere ver los precios (inicio, menú, carrito y pago).
 // Se recuerda en el navegador. Los precios siguen guardados en la moneda principal; un producto
-// puede tener un precio distinto para otra moneda (menu_items.currency_prices, en moneda principal):
-// por ejemplo cuesta RD$300, pero si se paga en dólares se cobra el equivalente de RD$350.
+// puede tener su propio precio en otra moneda (menu_items.currency_prices, en esa moneda):
+// por ejemplo cuesta RD$300, pero en dólares cuesta US$6 en vez de convertirse con la tasa.
 const STORAGE_KEY = 'rp-currency';
 const CurrencyContext = createContext(null);
 
-// Precio en moneda principal de un producto (o línea del carrito) para la moneda elegida.
+// Precio de un producto (o línea del carrito) para la moneda elegida, expresado en moneda principal:
+// si tiene precio propio en esa moneda se pasa a moneda principal con la tasa del día (US$6 × 60 = RD$360),
+// así al volver a convertirlo para mostrarlo da exactamente US$6.
 export function basePriceFor(item, currency) {
   if (!item) return 0;
   const special = currency && !currency.base && item.currency_prices ? Number(item.currency_prices[currency.code]) : NaN;
-  return special > 0 ? special : Number(item.price) || 0;
+  return special > 0 ? special * currency.rate : Number(item.price) || 0;
 }
 
 // Una línea del carrito guarda el precio base del producto y lo que suman sus opciones aparte,

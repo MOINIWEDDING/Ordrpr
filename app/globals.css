@@ -304,11 +304,9 @@ footer h5{font-size:12px; color:var(--cream-on-dark); margin:0 0 8px; text-trans
 .currency-row label > span{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft);}
 .currency-rate-note{margin:0; font-size:13px; color:var(--ink-soft);}
 .currency-rate-note b{color:var(--ink); font-weight:700;}
-.currency-price-hint{margin:0 0 10px; font-size:12.5px; line-height:1.5; color:var(--ink-soft);}
 .currency-price-list{display:flex; flex-direction:column; gap:8px;}
-.currency-price-row{display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:10px;}
+.currency-price-row{display:grid; grid-template-columns:auto minmax(0, 1fr); align-items:center; gap:10px;}
 .field .currency-price-row label{margin:0; font-size:13px; font-weight:700; letter-spacing:0; text-transform:none; color:var(--ink); white-space:nowrap;}
-.currency-price-eq{font-size:12.5px; font-weight:600; color:var(--ink-soft); white-space:nowrap;}
 .hours-legacy{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size:12.5px; color:var(--ink-soft);}
 .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--amber); box-shadow:0 0 0 3px color-mix(in srgb, var(--amber) 15%, transparent);}
 .field-row{display:flex; flex-direction:column;}
