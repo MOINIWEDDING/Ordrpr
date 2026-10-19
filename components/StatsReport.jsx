@@ -9,9 +9,11 @@ import { BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { formatIn } from '@/lib/settingsDefaults';
 import BrandLogo from '@/components/BrandLogo';
-import { PAY_LABELS, capitalize, startOfDay, periodRange, lineRange, computeStats, loadStatsData } from '@/lib/stats';
+import { PAY_LABELS, capitalize, dayKey, startOfDay, addDays, periodRange, lineRange, computeStats, loadStatsData } from '@/lib/stats';
 
-// Reporte de estadísticas para imprimir o guardar como PDF (A4). Dos tipos:
+// Reporte de estadísticas para imprimir o guardar como PDF (A4). Cuatro tipos:
+//   ?tipo=dia&dia=AAAA-MM-DD        un día contra el día anterior
+//   ?tipo=semana&semana=AAAA-MM-DD  la semana (lunes a domingo) de ese día contra la anterior
 //   ?tipo=mes&mes=AAAA-MM           un mes contra el mes anterior
 //   ?tipo=ab&a=desde_hasta&b=…      dos líneas de tiempo elegidas por el dueño
 // Los números salen de lib/stats.js, los mismos que se ven en /estadisticas.
@@ -27,6 +29,7 @@ function rangeName(from, to) {
   const a = startOfDay(from);
   const b = startOfDay(to);
   if (from === to) return `${shortDay(a)} ${a.getFullYear()}`;
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) return `${a.getDate()}–${shortDay(b)} ${b.getFullYear()}`;
   if (a.getFullYear() === b.getFullYear()) return `${shortDay(a)} – ${shortDay(b)} ${b.getFullYear()}`;
   return `${shortDay(a)} ${a.getFullYear()} – ${shortDay(b)} ${b.getFullYear()}`;
 }
@@ -50,6 +53,34 @@ function readParams(params) {
       range: { start: ra.start, end: ra.end, prevStart: rb.start, prevEnd: rb.end },
       aName: rangeName(a.from, a.to), bName: rangeName(b.from, b.to), aShort: 'A', bShort: 'B',
       fileName: `A vs B ${a.from} ${b.from}`,
+    };
+  }
+  if (params.get('tipo') === 'dia') {
+    const day = params.get('dia');
+    if (!DAY_RE.test(day || '')) return null;
+    const range = periodRange('dia', day);
+    return {
+      kind: 'dia', period: 'dia', range,
+      aName: capitalize(range.start.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
+      bName: capitalize(range.prevStart.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })),
+      aShort: shortDay(range.start), bShort: shortDay(range.prevStart),
+      fileName: day,
+    };
+  }
+  if (params.get('tipo') === 'semana') {
+    const day = params.get('semana');
+    if (!DAY_RE.test(day || '')) return null;
+    const range = periodRange('semana', day);
+    const weekName = (start) => rangeName(dayKey(start), dayKey(addDays(start, 6)));
+    const weekShort = (start) => {
+      const end = addDays(start, 6);
+      return start.getMonth() === end.getMonth() ? `${start.getDate()}–${shortDay(end)}` : `${shortDay(start)} – ${shortDay(end)}`;
+    };
+    return {
+      kind: 'semana', period: 'semana', range,
+      aName: `Semana del ${weekName(range.start)}`, bName: `Semana del ${weekName(range.prevStart)}`,
+      aShort: weekShort(range.start), bShort: weekShort(range.prevStart),
+      fileName: `semana ${dayKey(range.start)}`,
     };
   }
   const month = params.get('mes');
@@ -153,9 +184,12 @@ export default function StatsReport() {
 function ReportDocument({ spec, stats, settings, brand, place }) {
   const cur = stats.current;
   const prev = stats.previous || { revenue: 0, count: 0, avgTicket: 0, card: 0, cash: 0, profit: 0 };
-  const bLabel = spec.kind === 'mes' && stats.inProgress
-    ? `${spec.bName}, hasta el día ${new Date().getDate()}`
-    : spec.bName;
+  // si el periodo sigue en curso, B se cuenta solo hasta el mismo punto (ver computeStats)
+  const now = new Date();
+  const bLabel = !stats.inProgress ? spec.bName
+    : spec.kind === 'mes' ? `${spec.bName}, hasta el día ${now.getDate()}`
+    : spec.kind === 'semana' ? `${spec.bName}, hasta el ${now.toLocaleDateString('es', { weekday: 'long' })} a las ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+    : `${spec.bName}, hasta las ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`;
   const generated = new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
   const round = (v) => money(Math.round(v));
 
@@ -196,8 +230,8 @@ function ReportDocument({ spec, stats, settings, brand, place }) {
             </div>
           </div>
           <div className="rp-kind">
-            <span>{spec.kind === 'mes' ? 'Reporte mensual' : 'Reporte comparativo'}</span>
-            <b>{spec.kind === 'mes' ? spec.aName : 'A vs B'}</b>
+            <span>{{ dia: 'Reporte diario', semana: 'Reporte semanal', mes: 'Reporte mensual', ab: 'Reporte comparativo' }[spec.kind]}</span>
+            <b>{spec.kind === 'ab' ? 'A vs B' : spec.aName}</b>
           </div>
         </div>
 
