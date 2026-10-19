@@ -13,7 +13,6 @@ import AvatarPicker from '@/components/AvatarPicker';
 import Reveal from '@/components/Reveal';
 import AuthGate from '@/components/AuthGate';
 import BranchSwitcher from '@/components/BranchSwitcher';
-import BrandLogo from '@/components/BrandLogo';
 import { Chevron, ownerSections } from '@/components/OwnerSections';
 
 export default function CuentaPage() {
@@ -109,7 +108,6 @@ function ClientView({ profile, logout }) {
         {pickingAvatar && <AvatarPicker onClose={() => setPickingAvatar(false)} />}
 
         <Reveal className="giftcard-card" delay={0.08}>
-          <BrandLogo alt="" className="card-logo-mark" />
           <span className="eyebrow" style={{ color: 'rgba(243,236,221,0.75)' }}>Balance de gift card</span>
           <h3>{money(profile.gift_card_balance || 0)}</h3>
           <div className="giftcard-actions">
@@ -176,7 +174,6 @@ function GiftCardBanners({ cards, onSelect }) {
               {gc.design?.image_url && (
                 <div className="ph"><img className="real" src={gc.design.image_url} alt="" /></div>
               )}
-              <BrandLogo alt="" className="card-logo-mark" />
               <div className="offer-content">
                 <span className="giftcard-slide-status">{gc.status === 'activa' ? 'Activa' : gc.status === 'pendiente' ? 'Pendiente de pago' : 'Canjeada'}</span>
                 <span className="giftcard-slide-code">{gc.code}</span>

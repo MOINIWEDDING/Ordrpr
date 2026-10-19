@@ -5,7 +5,6 @@ import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import ProductDetailModal from './ProductDetailModal';
-import BrandLogo from './BrandLogo';
 
 export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, showDivider = true }) {
   const { addItem } = useCart();
@@ -95,7 +94,6 @@ export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, s
         )}
 
         <div className="p-info" style={{ '--tint-deep': `var(--tint-${tint}-deep)` }}>
-          <BrandLogo alt="" className="card-logo-mark" />
           <h4>{item.name}</h4>
           {tags.length > 0 && (
             <div className="p-tags">{tags.map((t) => <span key={t}>{t}</span>)}</div>
