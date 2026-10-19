@@ -18,6 +18,14 @@ function initialsPrefix(name) {
   return (letters.slice(0, 3) || 'GC');
 }
 
+// Ejemplo de precio con el mismo formato que usa el menú (ver formatMoney en lib/settingsDefaults).
+function pricePreview(form) {
+  const symbol = form.currency_symbol || '$';
+  let amount;
+  try { amount = (1500).toLocaleString(form.locale || 'es-DO'); } catch (e) { amount = '1500'; }
+  return form.currency_position === 'after' ? `${amount}${symbol}` : `${symbol}${amount}`;
+}
+
 export default function BrandSettingsForm({ group = 'identity', onSaved, submitLabel = 'Guardar' }) {
   const { settings, saveSettings } = useSettings();
   const uploader = useUploader({ kind: 'logo' });
@@ -107,11 +115,24 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
         <>
           <div className="field"><label htmlFor="bfSym">Símbolo de la moneda</label><input id="bfSym" type="text" value={form.currency_symbol || ''} onChange={set('currency_symbol')} placeholder="RD$, $, €…" maxLength={5} /></div>
           <div className="field">
-            <label htmlFor="bfPos">Dónde va el símbolo</label>
-            <select id="bfPos" value={form.currency_position || 'before'} onChange={set('currency_position')}>
-              <option value="before">Antes del precio (RD$ 1,500)</option>
-              <option value="after">Después del precio (1,500 $)</option>
-            </select>
+            <label id="bfPosLabel">Dónde va el símbolo</label>
+            <div className="seg-buttons" role="group" aria-labelledby="bfPosLabel">
+              {[['before', 'Antes del precio'], ['after', 'Después del precio']].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={(form.currency_position || 'before') === value}
+                  className={(form.currency_position || 'before') === value ? 'active' : ''}
+                  onClick={() => setForm((f) => ({ ...f, currency_position: value }))}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="money-preview">
+              <span>Así se verán tus precios</span>
+              <b>{pricePreview(form)}</b>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="bfPref">Prefijo de las gift cards</label>
