@@ -162,6 +162,13 @@ function OrdersList() {
               </li>
             ))}
           </ul>
+          {order.promo && order.promo.code && (
+            <div className="order-promo">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
+              <span>Código <b>{order.promo.code}</b></span>
+              {Number(order.promo.discount) > 0 && <span className="order-promo-off">−{money(order.promo.discount)}</span>}
+            </div>
+          )}
           {order.party_size > 1 && (
             <div className="split-bill-note">
               <span className="eyebrow">Dividida entre {order.party_size}</span>

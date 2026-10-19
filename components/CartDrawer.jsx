@@ -13,6 +13,7 @@ import { convertFromBase, formatIn } from '@/lib/settingsDefaults';
 import { useCurrency, linePriceFor } from '@/context/CurrencyContext';
 import CurrencySwitcher from './CurrencySwitcher';
 import { describeOptions } from '@/lib/productOptions';
+import { promoDiscount, promoError, promoSummary } from '@/lib/promo';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
@@ -39,6 +40,9 @@ export default function CartDrawer() {
   // subtotal en moneda principal con los precios que aplican a esa moneda (precio especial si lo hay)
   const viewSubtotal = lines.reduce((s, l) => s + l.qty * linePriceFor(l, currency), 0);
   const [promo, setPromo] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null); // lo que devolvió check_promo_code
+  const [promoMsg, setPromoMsg] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
   const [orderType, setOrderType] = useState(null); // 'pickup' | 'dine_in' | null
   const [partySize, setPartySize] = useState(1);
   const [placing, setPlacing] = useState(false);
@@ -54,8 +58,29 @@ export default function CartDrawer() {
   const effectiveAge = profile ? profile.age : guestInfo.age;
 
   const effectiveName = customerName || (profile ? profile.name : '') || '';
-  const taxAmount = Math.round((viewSubtotal * taxPercent) / 100);
-  const total = viewSubtotal + taxAmount + DELIVERY;
+  const viewPromo = promoDiscount(appliedPromo, lines.map((l) => ({ ...l, price: linePriceFor(l, currency) })), viewSubtotal);
+  const taxBase = viewSubtotal - viewPromo.amount;
+  const taxAmount = Math.round((taxBase * taxPercent) / 100);
+  const total = taxBase + taxAmount + DELIVERY;
+
+  async function applyPromo() {
+    const code = promo.trim();
+    if (!code) return;
+    setPromoMsg('');
+    if (!BARRO_CONFIGURED) { setPromoMsg('Conecta Supabase para usar códigos.'); return; }
+    setPromoBusy(true);
+    const { data, error } = await sb.rpc('check_promo_code', { code_input: code, subtotal_input: viewSubtotal });
+    setPromoBusy(false);
+    if (error) { setPromoMsg(/function|schema cache/i.test(error.message || '') ? 'Los códigos todavía no están disponibles.' : error.message); return; }
+    if (!data || !data.ok) { setPromoMsg(promoError(data)); return; }
+    setAppliedPromo(data);
+    setPromo('');
+  }
+
+  function removePromo() {
+    setAppliedPromo(null);
+    setPromoMsg('');
+  }
 
   async function handlePay(method) {
     if (!lines.length) return;
@@ -84,7 +109,9 @@ export default function CartDrawer() {
     let ebOutcome = null;
     let ebPrizeDescription = 'una bebida gratis';
     let ebDiscountApplied = false;
-    let finalSubtotal = paySubtotal;
+    // El código promocional se descuenta primero; se canjea más abajo, justo antes de cobrar.
+    const promoAmount = appliedPromo ? promoDiscount(appliedPromo, payLines, paySubtotal).amount : 0;
+    let finalSubtotal = paySubtotal - promoAmount;
 
     if (BARRO_CONFIGURED) {
       const { data: ebData } = await sb.rpc('try_claim_early_bird', {
@@ -108,7 +135,7 @@ export default function CartDrawer() {
             prizeLine = payLines.find((l) => l.id === ebData.prize_item_id) || null;
           }
           if (prizeLine) {
-            finalSubtotal = Math.max(0, paySubtotal - prizeLine.price);
+            finalSubtotal = Math.max(0, finalSubtotal - prizeLine.price);
             ebDiscountApplied = true;
           }
         }
@@ -122,6 +149,16 @@ export default function CartDrawer() {
       if (!profile) { setPlaceError('Inicia sesión para pagar con tu gift card.'); setPlacing(false); return; }
       if ((profile.gift_card_balance || 0) < finalTotal) {
         setPlaceError(`No te alcanza el balance de gift card (tienes ${money(profile.gift_card_balance || 0)}, el total es ${money(finalTotal)}). Elige otro método o completa el pago con tarjeta.`);
+        setPlacing(false);
+        return;
+      }
+    }
+
+    // Canjear el código gasta un uso: se hace después de revisar todo lo demás y antes de cobrar.
+    if (appliedPromo && BARRO_CONFIGURED) {
+      const { data: promoRes, error: promoErr } = await sb.rpc('redeem_promo_code', { code_input: appliedPromo.code, subtotal_input: paySubtotal });
+      if (promoErr || !promoRes || !promoRes.ok) {
+        setPlaceError(promoErr ? promoErr.message : `${promoError(promoRes)} Quítalo para continuar.`);
         setPlacing(false);
         return;
       }
@@ -147,6 +184,7 @@ export default function CartDrawer() {
       customer_gender: effectiveGender || null,
       customer_age: effectiveAge || null,
       party_size: orderType === 'dine_in' ? partySize : 1,
+      ...(appliedPromo ? { promo: { code_id: appliedPromo.id, code: appliedPromo.code, kind: appliedPromo.kind, discount: promoAmount } } : {}),
     };
     // Pago en otra moneda: se guarda con el tipo de cambio y el total convertido para que el local sepa cuánto cobrar.
     // La gift card siempre se descuenta en la moneda principal.
@@ -162,7 +200,7 @@ export default function CartDrawer() {
       let sent = payload;
       let { error } = await sb.from('orders').insert(sent);
       // si la base de datos aún no tiene alguna columna opcional (falta aplicar su migración), el pedido se envía sin ella
-      for (const col of ['push_ref', 'payment_currency']) {
+      for (const col of ['push_ref', 'payment_currency', 'promo']) {
         if (error && sent[col] !== undefined && new RegExp(col, 'i').test(error.message || '')) {
           sent = { ...sent };
           delete sent[col];
@@ -183,11 +221,14 @@ export default function CartDrawer() {
 
     setPlacing(false);
     setSuccess(true);
-    setLastOrderSummary({ orderType, tableNumber, partySize: effectivePartySize, total: finalTotal, currency: paidCurrency });
+    const promoMessage = appliedPromo ? { code: appliedPromo.code, text: appliedPromo.message || '' } : null;
+    setLastOrderSummary({ orderType, tableNumber, partySize: effectivePartySize, total: finalTotal, currency: paidCurrency, promo: promoMessage });
     clear();
+    setAppliedPromo(null);
+    setPromoMsg('');
     setOrderType(null);
     setPartySize(1);
-    if (!ebOutcome && effectivePartySize <= 1) {
+    if (!ebOutcome && effectivePartySize <= 1 && !(promoMessage && promoMessage.text)) {
       setTimeout(() => { setSuccess(false); closeDrawer(); }, 2600);
     }
   }
@@ -219,12 +260,15 @@ export default function CartDrawer() {
           >
             {success ? (
               earlyBirdResult ? (
+                <>
+                {lastOrderSummary?.promo?.text && <PromoRedeemed promo={lastOrderSummary.promo} />}
                 <EarlyBirdResult
                   type={earlyBirdResult.type}
                   prize={earlyBirdResult.prize}
                   discountApplied={earlyBirdResult.discountApplied}
                   onClose={handleEarlyBirdClose}
                 />
+                </>
               ) : (
               <div className="order-success">
                 <motion.div
@@ -246,6 +290,14 @@ export default function CartDrawer() {
                   <motion.p className="order-success-currency" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
                     Vas a pagar <b>{formatIn(convertFromBase(lastOrderSummary.total, lastOrderSummary.currency), lastOrderSummary.currency)}</b> ({money(lastOrderSummary.total)})
                   </motion.p>
+                )}
+                {lastOrderSummary?.promo?.text && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
+                    <PromoRedeemed promo={lastOrderSummary.promo} />
+                    {!(lastOrderSummary.partySize > 1) && (
+                      <button type="button" className="btn btn-amber btn-block" style={{ marginTop: 16 }} onClick={() => { setSuccess(false); closeDrawer(); }}>Listo</button>
+                    )}
+                  </motion.div>
                 )}
                 {lastOrderSummary?.partySize > 1 && (
                   <motion.div
@@ -371,17 +423,34 @@ export default function CartDrawer() {
                         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Pidiendo en: {branchInfo?.full}</p>
                       )}
 
-                      <div className="promo-row">
-                        <input type="text" placeholder="Código promocional" value={promo} onChange={(e) => setPromo(e.target.value)} />
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => showToast('Los códigos promocionales llegan pronto.')}>Aplicar</button>
-                      </div>
+                      {appliedPromo ? (
+                        <div className="promo-applied">
+                          <span className="promo-applied-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
+                          </span>
+                          <span className="promo-applied-text">
+                            <b>{appliedPromo.code}</b>
+                            <span>{viewPromo.missingItem ? 'Agrega el producto del código a tu pedido' : promoSummary(appliedPromo, (lines.find((l) => l.id === appliedPromo.item_id) || {}).name)}</span>
+                          </span>
+                          <button type="button" className="promo-applied-remove" onClick={removePromo} aria-label="Quitar código">
+                            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <form className="promo-row" onSubmit={(e) => { e.preventDefault(); applyPromo(); }}>
+                          <input type="text" placeholder="Código promocional" value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
+                          <button type="submit" className="btn btn-ghost btn-sm" disabled={promoBusy || !promo.trim()}>{promoBusy ? '…' : 'Aplicar'}</button>
+                        </form>
+                      )}
+                      {promoMsg && <p className="promo-msg">{promoMsg}</p>}
 
                       <CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" />
 
                       <div className="cart-totals">
                         <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
+                        {viewPromo.amount > 0 && <div className="cart-discount"><span>Código {appliedPromo.code}</span><span>−{inCurrency(viewPromo.amount)}</span></div>}
                         {taxCharges.map((c, i) => (
-                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((viewSubtotal * (Number(c.percent) || 0)) / 100))}</span></div>
+                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((taxBase * (Number(c.percent) || 0)) / 100))}</span></div>
                         ))}
                         <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
                         <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
@@ -423,5 +492,15 @@ export default function CartDrawer() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// El mensaje que el dueño escribió para cuando se canjea el código.
+function PromoRedeemed({ promo }) {
+  return (
+    <div className="promo-redeemed">
+      <span className="promo-redeemed-code">{promo.code}</span>
+      <p>{promo.text}</p>
+    </div>
   );
 }

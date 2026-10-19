@@ -17,6 +17,7 @@ const STAFF_TABS = [
   { href: '/menu', label: 'Menú', icon: <path d="M5 7h14M5 12h14M5 17h9" /> },
   { href: '/ordenes', label: 'Órdenes', icon: <><path d="M6 3h9l3 3v15H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></>, badge: true },
   { href: '/estadisticas', label: 'Estadísticas', icon: <><path d="M4 20V10M11 20V4M18 20v-7" /></> },
+  { href: '/promociones', label: 'Promos', icon: <><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></> },
 ];
 
 const COMENSAL_TABS = [

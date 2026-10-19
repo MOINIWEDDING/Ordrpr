@@ -433,7 +433,7 @@ function MiniRows({ rows }) {
 }
 
 // Barras dibujadas en SVG para que el PDF quede nítido a cualquier tamaño.
-function SalesChart({ data }) {
+export function SalesChart({ data }) {
   const W = 680;
   const H = 190;
   const left = 58;
