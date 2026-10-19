@@ -10,7 +10,8 @@ import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
 import { useSettings } from '@/context/SettingsContext';
-import { paymentCurrencies, convertFromBase, formatIn } from '@/lib/settingsDefaults';
+import { paymentCurrencies, extraCurrencyCodes, convertFromBase, formatIn } from '@/lib/settingsDefaults';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
@@ -32,7 +33,8 @@ export default function CartDrawer() {
   const guestInfo = useGuestInfo();
   const { showToast } = useToast();
   const { settings } = useSettings();
-  const currencies = paymentCurrencies(settings);
+  const { rates } = useExchangeRates(settings.currency_code || 'DOP', extraCurrencyCodes(settings));
+  const currencies = paymentCurrencies(settings, rates); // solo las monedas con tasa de hoy
   const [currencyIndex, setCurrencyIndex] = useState(0); // en qué moneda quiere pagar el cliente (0 = la principal)
   const currency = currencies[currencyIndex] || currencies[0];
   const inCurrency = (n) => formatIn(convertFromBase(n, currency), currency);
@@ -145,8 +147,8 @@ export default function CartDrawer() {
     const paidCurrency = method === 'gift_card' || currency.base ? null : currency;
     if (paidCurrency) {
       payload.payment_currency = {
-        name: paidCurrency.name, symbol: paidCurrency.symbol, position: paidCurrency.position,
-        rate: paidCurrency.rate, total: convertFromBase(finalTotal, paidCurrency),
+        code: paidCurrency.code, name: paidCurrency.name, symbol: paidCurrency.symbol, position: paidCurrency.position,
+        rate: paidCurrency.rate, source: paidCurrency.source, total: convertFromBase(finalTotal, paidCurrency),
       };
     }
 
@@ -397,7 +399,7 @@ export default function CartDrawer() {
                         <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
                         <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
                         {!currency.base && (
-                          <div className="cart-total-base"><span>1 {currency.symbol} = {money(currency.rate)}</span><span>Equivale a {money(total)}</span></div>
+                          <div className="cart-total-base"><span>1 {currency.symbol} = {money(currency.rate)}{currency.source === 'Banreservas' ? ' · tasa Banreservas de hoy' : ' · tasa de hoy'}</span><span>Equivale a {money(total)}</span></div>
                         )}
                       </div>
 
