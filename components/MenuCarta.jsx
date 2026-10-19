@@ -3,7 +3,8 @@ import { useState, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { useMenuItems, money } from '@/hooks/useMenuItems';
+import { useMenuItems } from '@/hooks/useMenuItems';
+import { useCurrency } from '@/context/CurrencyContext';
 import { useCategories } from '@/hooks/useCategories';
 import ProductModal from './ProductModal';
 import CategoryModal from './CategoryModal';
@@ -145,13 +146,14 @@ export default function MenuCarta() {
 }
 
 function CartaRow({ item, isStaff, onOpen, onEdit, onDelete }) {
+  const { formatItem } = useCurrency();
   return (
     <div className="carta-item">
       <button type="button" className="carta-item-main" onClick={onOpen}>
         <div className="carta-item-top">
           <span className="carta-item-name">{item.name}</span>
           <span className="carta-item-dots" />
-          <span className="carta-item-price">{money(item.price)}</span>
+          <span className="carta-item-price">{formatItem(item)}</span>
         </div>
         {item.description && <p className="carta-item-desc">{item.description}</p>}
       </button>

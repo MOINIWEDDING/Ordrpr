@@ -8,6 +8,7 @@ import OffersCarousel from './OffersCarousel';
 import CategoryCarousels from './CategoryCarousels';
 import ProductIcon from './ProductIcon';
 import Reveal from './Reveal';
+import CurrencySwitcher from './CurrencySwitcher';
 import { useSettings } from '@/context/SettingsContext';
 
 const SEEN_KEY = 'rp-welcome-seen';
@@ -32,6 +33,8 @@ export default function HomeContent() {
       <section className="home-top">
         <div className="wrap">
           <div className="home-greet">Bienvenido a<strong>{settings.brand_name}</strong></div>
+
+          <CurrencySwitcher idSuffix="home" className="page-currency" />
 
           <OffersCarousel />
 

@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
-import { money } from '@/hooks/useMenuItems';
+import { useCurrency } from '@/context/CurrencyContext';
 import ProductDetailModal from './ProductDetailModal';
 import BrandLogo from './BrandLogo';
 
 export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, showDivider = true }) {
   const { addItem } = useCart();
+  const { formatItem } = useCurrency();
   const { isFav, toggle } = useFavorites();
   const [confirming, setConfirming] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
@@ -101,7 +102,7 @@ export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, s
           )}
           {showDivider && <div className="p-divider" />}
           <div className="p-bottom-row">
-            <span className="p-price">{money(item.price)}</span>
+            <span className="p-price">{formatItem(item)}</span>
             <motion.button
               type="button"
               className={`p-plus${justAdded ? ' bump' : ''}`}

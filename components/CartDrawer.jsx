@@ -9,9 +9,9 @@ import { useTables } from '@/hooks/useTables';
 import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { money } from '@/hooks/useMenuItems';
 import { useToast } from '@/context/ToastContext';
-import { useSettings } from '@/context/SettingsContext';
-import { paymentCurrencies, extraCurrencyCodes, convertFromBase, formatIn } from '@/lib/settingsDefaults';
-import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { convertFromBase, formatIn } from '@/lib/settingsDefaults';
+import { useCurrency, linePriceFor } from '@/context/CurrencyContext';
+import CurrencySwitcher from './CurrencySwitcher';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
@@ -25,19 +25,18 @@ const PAYMENT_METHODS = [
 ];
 
 export default function CartDrawer() {
-  const { lines, subtotal, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
+  const { lines, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
   const { profile, refreshProfile } = useAuth();
   const { branch, branchInfo } = useBranch();
   const { tables } = useTables(branch);
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
   const guestInfo = useGuestInfo();
   const { showToast } = useToast();
-  const { settings } = useSettings();
-  const { rates } = useExchangeRates(settings.currency_code || 'DOP', extraCurrencyCodes(settings));
-  const currencies = paymentCurrencies(settings, rates); // solo las monedas con tasa de hoy
-  const [currencyIndex, setCurrencyIndex] = useState(0); // en qué moneda quiere pagar el cliente (0 = la principal)
-  const currency = currencies[currencyIndex] || currencies[0];
+  // la moneda que eligió el cliente (la misma del inicio y el menú); solo monedas con tasa de hoy
+  const { currencies, currency } = useCurrency();
   const inCurrency = (n) => formatIn(convertFromBase(n, currency), currency);
+  // subtotal en moneda principal con los precios que aplican a esa moneda (precio especial si lo hay)
+  const viewSubtotal = lines.reduce((s, l) => s + l.qty * linePriceFor(l, currency), 0);
   const [promo, setPromo] = useState('');
   const [orderType, setOrderType] = useState(null); // 'pickup' | 'dine_in' | null
   const [partySize, setPartySize] = useState(1);
@@ -54,8 +53,8 @@ export default function CartDrawer() {
   const effectiveAge = profile ? profile.age : guestInfo.age;
 
   const effectiveName = customerName || (profile ? profile.name : '') || '';
-  const taxAmount = Math.round((subtotal * taxPercent) / 100);
-  const total = subtotal + taxAmount + DELIVERY;
+  const taxAmount = Math.round((viewSubtotal * taxPercent) / 100);
+  const total = viewSubtotal + taxAmount + DELIVERY;
 
   async function handlePay(method) {
     if (!lines.length) return;
@@ -73,12 +72,18 @@ export default function CartDrawer() {
     setPlacing(true);
     setEarlyBirdResult(null);
 
+    // Precios con los que se cobra: los de la moneda elegida (con su precio especial si lo hay).
+    // La gift card siempre se cobra en la moneda principal, con los precios normales.
+    const payCurrency = method === 'gift_card' ? currencies[0] : currency;
+    const payLines = lines.map((l) => ({ ...l, price: linePriceFor(l, payCurrency) }));
+    const paySubtotal = payLines.reduce((s, l) => s + l.qty * l.price, 0);
+
     // Se intenta el Early Bird ANTES de cobrar, para que si gana y el premio
     // aplica, el descuento ya esté restado del total antes de procesar el pago.
     let ebOutcome = null;
     let ebPrizeDescription = 'una bebida gratis';
     let ebDiscountApplied = false;
-    let finalSubtotal = subtotal;
+    let finalSubtotal = paySubtotal;
 
     if (BARRO_CONFIGURED) {
       const { data: ebData } = await sb.rpc('try_claim_early_bird', {
@@ -94,15 +99,15 @@ export default function CartDrawer() {
           let prizeLine = null;
           if (ebData.discount_any_beverage) {
             // se descuenta la bebida más barata del pedido (si tiene más de una)
-            const beverageLines = lines.filter((l) => l.is_beverage);
+            const beverageLines = payLines.filter((l) => l.is_beverage);
             if (beverageLines.length) {
               prizeLine = beverageLines.reduce((cheapest, l) => (l.price < cheapest.price ? l : cheapest), beverageLines[0]);
             }
           } else if (ebData.prize_item_id) {
-            prizeLine = lines.find((l) => l.id === ebData.prize_item_id) || null;
+            prizeLine = payLines.find((l) => l.id === ebData.prize_item_id) || null;
           }
           if (prizeLine) {
-            finalSubtotal = Math.max(0, subtotal - prizeLine.price);
+            finalSubtotal = Math.max(0, paySubtotal - prizeLine.price);
             ebDiscountApplied = true;
           }
         }
@@ -132,7 +137,7 @@ export default function CartDrawer() {
       ...(orderId ? { id: orderId, push_ref: getGuestPushRef() } : {}), // push_ref: a qué aparato avisar (invitado)
       customer_name: effectiveName.trim(),
       table_number: orderType === 'pickup' ? 'Pick up' : tableNumber,
-      items: lines.map((l) => ({ id: l.id, name: l.name, price: l.price, qty: l.qty, notes: l.notes || '', options: l.options || [] })),
+      items: payLines.map((l) => ({ id: l.id, name: l.name, price: l.price, qty: l.qty, notes: l.notes || '', options: l.options || [] })),
       subtotal: finalSubtotal,
       tax_amount: finalTaxAmount,
       payment_method: method,
@@ -291,7 +296,7 @@ export default function CartDrawer() {
                                 {l.options && l.options.length > 0 && (
                                   <span className="cart-line-options">{l.options.map((o) => o.label).join(' · ')}</span>
                                 )}
-                                <span className="cart-line-price">{money(l.price)}</span>
+                                <span className="cart-line-price">{inCurrency(linePriceFor(l, currency))}</span>
                               </div>
                               <div className="qty-stepper">
                                 <button type="button" onClick={() => setQty(l.lineKey, l.qty - 1)} aria-label="Menos">–</button>
@@ -370,31 +375,12 @@ export default function CartDrawer() {
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => showToast('Los códigos promocionales llegan pronto.')}>Aplicar</button>
                       </div>
 
-                      {currencies.length > 1 && (
-                        <div className="currency-switch">
-                          <span className="currency-switch-label">Pagar en</span>
-                          <div className="currency-switch-track" role="radiogroup" aria-label="Moneda para pagar">
-                            {currencies.map((c, i) => (
-                              <button
-                                key={`${c.symbol}-${i}`}
-                                type="button"
-                                role="radio"
-                                aria-checked={i === currencyIndex}
-                                className={i === currencyIndex ? 'active' : ''}
-                                onClick={() => setCurrencyIndex(i)}
-                              >
-                                {i === currencyIndex && <motion.span layoutId="currency-pill" className="currency-switch-pill" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-                                <span className="currency-switch-text">{c.symbol}{c.name ? ` · ${c.name}` : ''}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" />
 
                       <div className="cart-totals">
-                        <div><span>Subtotal</span><span>{inCurrency(subtotal)}</span></div>
+                        <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
                         {taxCharges.map((c, i) => (
-                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((subtotal * (Number(c.percent) || 0)) / 100))}</span></div>
+                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((viewSubtotal * (Number(c.percent) || 0)) / 100))}</span></div>
                         ))}
                         <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
                         <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
