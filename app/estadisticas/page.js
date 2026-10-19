@@ -90,8 +90,8 @@ export default function EstadisticasPage() {
         </div>
         {exporting && (
           <ReportExportModal
-            initialMode={period === 'custom' ? 'ab' : period === 'dia' ? 'dia' : 'mes'}
-            initialDay={period === 'dia' ? day : dayKey(new Date())}
+            initialMode={period === 'custom' ? 'ab' : period === 'dia' || period === 'semana' ? period : 'mes'}
+            initialDay={period === 'dia' || period === 'semana' ? day : dayKey(new Date())}
             initialMonth={(period === 'mes' || period === 'semana' || period === 'dia') ? day.slice(0, 7) : dayKey(new Date()).slice(0, 7)}
             lineA={lineA}
             lineB={lineB}
@@ -241,6 +241,10 @@ function ReportExportModal({ initialMode, initialDay, initialMonth, lineA, lineB
   const [mode, setMode] = useState(initialMode);
   const [month, setMonth] = useState(initialMonth);
   const [reportDay, setReportDay] = useState(initialDay);
+  const weekOf = (k) => dayKey(periodRange('semana', k).start);
+  const [reportWeek, setReportWeek] = useState(() => weekOf(initialDay));
+  const weeks = [0, 1, 2].map((i) => dayKey(addDays(startOfDay(weekOf(dayKey(new Date()))), -7 * i)));
+  const weekLabel = (k) => `${startOfDay(k).getDate()} – ${addDays(startOfDay(k), 6).toLocaleDateString('es', { day: 'numeric', month: 'short' })}`;
   const today = dayKey(new Date());
   const days = [0, 1, 2].map((i) => dayKey(addDays(new Date(), -i)));
   const dayName = (k, i) => (i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : capitalize(startOfDay(k).toLocaleDateString('es', { weekday: 'long' })));
@@ -253,6 +257,7 @@ function ReportExportModal({ initialMode, initialDay, initialMonth, lineA, lineB
   function create() {
     onCreate({
       dia: `/estadisticas/reporte?tipo=dia&dia=${reportDay}`,
+      semana: `/estadisticas/reporte?tipo=semana&semana=${reportWeek}`,
       mes: `/estadisticas/reporte?tipo=mes&mes=${month}`,
       ab: `/estadisticas/reporte?tipo=ab&a=${a.from}_${a.to}&b=${b.from}_${b.to}`,
     }[mode]);
@@ -266,8 +271,9 @@ function ReportExportModal({ initialMode, initialDay, initialMonth, lineA, lineB
           <h3>Exportar estadísticas</h3>
         </div>
         <div className="seg-buttons" role="group" aria-label="Tipo de reporte">
-          <button type="button" className={mode === 'dia' ? 'active' : ''} aria-pressed={mode === 'dia'} onClick={() => setMode('dia')}>Un día</button>
-          <button type="button" className={mode === 'mes' ? 'active' : ''} aria-pressed={mode === 'mes'} onClick={() => setMode('mes')}>Un mes</button>
+          <button type="button" className={mode === 'dia' ? 'active' : ''} aria-pressed={mode === 'dia'} onClick={() => setMode('dia')}>Día</button>
+          <button type="button" className={mode === 'semana' ? 'active' : ''} aria-pressed={mode === 'semana'} onClick={() => setMode('semana')}>Semana</button>
+          <button type="button" className={mode === 'mes' ? 'active' : ''} aria-pressed={mode === 'mes'} onClick={() => setMode('mes')}>Mes</button>
           <button type="button" className={mode === 'ab' ? 'active' : ''} aria-pressed={mode === 'ab'} onClick={() => setMode('ab')}>A vs B</button>
         </div>
 
@@ -285,6 +291,22 @@ function ReportExportModal({ initialMode, initialDay, initialMonth, lineA, lineB
             <label className="report-month-other">
               <span>Otro día</span>
               <input type="date" value={reportDay} max={today} onChange={(e) => { if (e.target.value) setReportDay(e.target.value); }} />
+            </label>
+          </section>
+        ) : mode === 'semana' ? (
+          <section className="pe-section">
+            <h4>Semana</h4>
+            <div className="report-months">
+              {weeks.map((k, i) => (
+                <button key={k} type="button" className={`report-month${reportWeek === k ? ' active' : ''}`} aria-pressed={reportWeek === k} onClick={() => setReportWeek(k)}>
+                  <b>{['Esta', 'Pasada', 'Antepasada'][i]}</b>
+                  <span>{weekLabel(k)}</span>
+                </button>
+              ))}
+            </div>
+            <label className="report-month-other">
+              <span>Otra semana</span>
+              <input type="date" value={reportWeek} max={today} onChange={(e) => { if (e.target.value) setReportWeek(weekOf(e.target.value)); }} />
             </label>
           </section>
         ) : mode === 'mes' ? (

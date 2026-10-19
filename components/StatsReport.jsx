@@ -9,10 +9,11 @@ import { BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { formatIn } from '@/lib/settingsDefaults';
 import BrandLogo from '@/components/BrandLogo';
-import { PAY_LABELS, capitalize, startOfDay, periodRange, lineRange, computeStats, loadStatsData } from '@/lib/stats';
+import { PAY_LABELS, capitalize, dayKey, startOfDay, addDays, periodRange, lineRange, computeStats, loadStatsData } from '@/lib/stats';
 
-// Reporte de estadísticas para imprimir o guardar como PDF (A4). Tres tipos:
+// Reporte de estadísticas para imprimir o guardar como PDF (A4). Cuatro tipos:
 //   ?tipo=dia&dia=AAAA-MM-DD        un día contra el día anterior
+//   ?tipo=semana&semana=AAAA-MM-DD  la semana (lunes a domingo) de ese día contra la anterior
 //   ?tipo=mes&mes=AAAA-MM           un mes contra el mes anterior
 //   ?tipo=ab&a=desde_hasta&b=…      dos líneas de tiempo elegidas por el dueño
 // Los números salen de lib/stats.js, los mismos que se ven en /estadisticas.
@@ -28,6 +29,7 @@ function rangeName(from, to) {
   const a = startOfDay(from);
   const b = startOfDay(to);
   if (from === to) return `${shortDay(a)} ${a.getFullYear()}`;
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) return `${a.getDate()}–${shortDay(b)} ${b.getFullYear()}`;
   if (a.getFullYear() === b.getFullYear()) return `${shortDay(a)} – ${shortDay(b)} ${b.getFullYear()}`;
   return `${shortDay(a)} ${a.getFullYear()} – ${shortDay(b)} ${b.getFullYear()}`;
 }
@@ -63,6 +65,22 @@ function readParams(params) {
       bName: capitalize(range.prevStart.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })),
       aShort: shortDay(range.start), bShort: shortDay(range.prevStart),
       fileName: day,
+    };
+  }
+  if (params.get('tipo') === 'semana') {
+    const day = params.get('semana');
+    if (!DAY_RE.test(day || '')) return null;
+    const range = periodRange('semana', day);
+    const weekName = (start) => rangeName(dayKey(start), dayKey(addDays(start, 6)));
+    const weekShort = (start) => {
+      const end = addDays(start, 6);
+      return start.getMonth() === end.getMonth() ? `${start.getDate()}–${shortDay(end)}` : `${shortDay(start)} – ${shortDay(end)}`;
+    };
+    return {
+      kind: 'semana', period: 'semana', range,
+      aName: `Semana del ${weekName(range.start)}`, bName: `Semana del ${weekName(range.prevStart)}`,
+      aShort: weekShort(range.start), bShort: weekShort(range.prevStart),
+      fileName: `semana ${dayKey(range.start)}`,
     };
   }
   const month = params.get('mes');
@@ -170,6 +188,7 @@ function ReportDocument({ spec, stats, settings, brand, place }) {
   const now = new Date();
   const bLabel = !stats.inProgress ? spec.bName
     : spec.kind === 'mes' ? `${spec.bName}, hasta el día ${now.getDate()}`
+    : spec.kind === 'semana' ? `${spec.bName}, hasta el ${now.toLocaleDateString('es', { weekday: 'long' })} a las ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
     : `${spec.bName}, hasta las ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`;
   const generated = new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
   const round = (v) => money(Math.round(v));
@@ -211,7 +230,7 @@ function ReportDocument({ spec, stats, settings, brand, place }) {
             </div>
           </div>
           <div className="rp-kind">
-            <span>{{ dia: 'Reporte diario', mes: 'Reporte mensual', ab: 'Reporte comparativo' }[spec.kind]}</span>
+            <span>{{ dia: 'Reporte diario', semana: 'Reporte semanal', mes: 'Reporte mensual', ab: 'Reporte comparativo' }[spec.kind]}</span>
             <b>{spec.kind === 'ab' ? 'A vs B' : spec.aName}</b>
           </div>
         </div>
