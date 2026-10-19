@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useBranch } from '@/context/BranchContext';
+import HoursPicker from './HoursPicker';
 
 function slugify(s) {
   return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -109,7 +110,7 @@ export default function BranchesManager({ onChange }) {
         <div className="field"><label htmlFor="brName">Nombre</label><input id="brName" type="text" value={form.name} onChange={set('name')} placeholder="Ej. Centro, Plaza Norte, Sucursal Principal" maxLength={50} /></div>
         <div className="field"><label htmlFor="brAddr">Dirección</label><input id="brAddr" type="text" value={form.address} onChange={set('address')} placeholder="Calle, número, sector" /></div>
         <div className="field"><label htmlFor="brPhone">Teléfono</label><input id="brPhone" type="tel" value={form.phone} onChange={set('phone')} /></div>
-        <div className="field"><label htmlFor="brHours">Horario</label><textarea id="brHours" value={form.hours} onChange={set('hours')} placeholder={'Lun – Vie · 8:00 am – 9:00 pm\nSáb – Dom · 9:00 am – 11:00 pm'} /></div>
+        <div className="field"><label htmlFor="brHours">Horario</label><HoursPicker id="brHours" value={form.hours} onChange={(hours) => setForm((f) => ({ ...f, hours }))} /></div>
         {error && <div className="form-msg show error">{error}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
           <button type="submit" className="btn btn-amber" disabled={busy}>{busy ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar sucursal'}</button>

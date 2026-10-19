@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSettings } from '@/context/SettingsContext';
 import { useUploader } from '@/hooks/useUploader';
 import Uploader from './Uploader';
+import HoursPicker from './HoursPicker';
 
 // Un mismo formulario sirve para el asistente inicial y para el panel del dueño.
 // group: 'identity' (nombre, logo) | 'contact' (dirección, horario, redes) | 'money' (moneda, prefijo gift cards)
@@ -98,7 +99,7 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
           <div className="field"><label htmlFor="bfMail">Correo (opcional)</label><input id="bfMail" type="email" value={form.email || ''} onChange={set('email')} /></div>
           <div className="field"><label htmlFor="bfIg">Instagram (enlace, opcional)</label><input id="bfIg" type="url" value={form.instagram || ''} onChange={set('instagram')} placeholder="https://instagram.com/tunegocio" /></div>
           <div className="field"><label htmlFor="bfFb">Facebook (enlace, opcional)</label><input id="bfFb" type="url" value={form.facebook || ''} onChange={set('facebook')} placeholder="https://facebook.com/tunegocio" /></div>
-          <div className="field"><label htmlFor="bfHours">Horario general</label><textarea id="bfHours" value={form.hours || ''} onChange={set('hours')} placeholder={'Lun – Vie · 8:00 am – 9:00 pm\nSáb – Dom · 9:00 am – 11:00 pm'} /></div>
+          <div className="field"><label htmlFor="bfHours">Horario general</label><HoursPicker id="bfHours" value={form.hours || ''} onChange={(hours) => setForm((f) => ({ ...f, hours }))} /></div>
         </>
       )}
 
