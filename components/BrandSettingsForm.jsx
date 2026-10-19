@@ -25,7 +25,7 @@ function initialsPrefix(name) {
 // busca el servidor cada día (Banreservas para dólar y euro, un servicio abierto para las demás).
 const MAX_EXTRA_CURRENCIES = 5;
 
-function ExtraCurrencies({ baseCode, baseSymbol, value, onChange }) {
+function ExtraCurrencies({ baseCode, value, onChange }) {
   const codes = value.map((c) => c.code).filter((c) => c && c !== baseCode);
   const { rates, loading } = useExchangeRates(baseCode, codes);
   const update = (i, patch) => onChange(value.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -35,7 +35,6 @@ function ExtraCurrencies({ baseCode, baseSymbol, value, onChange }) {
   return (
     <div className="field">
       <label>Otras monedas para pagar (opcional)</label>
-      <p className="currency-hint">Tus precios siguen en {baseSymbol}. El cliente puede elegir pagar en estas monedas y verá el total convertido con la tasa del día: la de Banreservas para dólar y euro, y la de un servicio de tasas abierto para las demás.</p>
       <div className="currency-list">
         {value.map((c, i) => {
           const info = currencyInfo(c.code);
@@ -221,7 +220,6 @@ export default function BrandSettingsForm({ group = 'identity', onSaved, submitL
           </div>
           <ExtraCurrencies
             baseCode={form.currency_code || 'DOP'}
-            baseSymbol={form.currency_symbol || '$'}
             value={Array.isArray(form.extra_currencies) ? form.extra_currencies : []}
             onChange={(extra_currencies) => setForm((f) => ({ ...f, extra_currencies }))}
           />
