@@ -17,6 +17,7 @@ import { promoDiscount, promoError, promoSummary } from '@/lib/promo';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
+import { useLoyaltySettings } from '@/lib/loyalty';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
 
@@ -29,6 +30,7 @@ const PAYMENT_METHODS = [
 export default function CartDrawer() {
   const { lines, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
   const { profile, refreshProfile } = useAuth();
+  const { loyalty } = useLoyaltySettings();
   const { branch, branchInfo } = useBranch();
   const { tables } = useTables(branch);
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
@@ -286,6 +288,11 @@ export default function CartDrawer() {
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>
                   {lastOrderSummary?.orderType === 'pickup' ? 'Tu pedido está listo para recoger en el local.' : `Tu pedido ya va camino a ${lastOrderSummary?.tableNumber}.`}
                 </motion.p>
+                {loyalty.enabled && (
+                  <motion.p className="order-success-stamp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+                    {profile ? `Sumarás un sello en tu ${loyalty.title.toLowerCase()} cuando el local confirme tu pedido.` : 'Crea una cuenta para juntar sellos con tus pedidos.'}
+                  </motion.p>
+                )}
                 {lastOrderSummary?.currency && (
                   <motion.p className="order-success-currency" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
                     Vas a pagar <b>{formatIn(convertFromBase(lastOrderSummary.total, lastOrderSummary.currency), lastOrderSummary.currency)}</b> ({money(lastOrderSummary.total)})

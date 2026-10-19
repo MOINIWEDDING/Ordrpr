@@ -87,6 +87,8 @@ Si el restaurante no quiere avisos push, sáltate este paso: la app funciona igu
 
 3. **Deploy.** Después, en **Settings → Domains**, conecta su dominio.
 
+   Para Apple Wallet (opcional, ver abajo) se agregan además `APPLE_PASS_P12`, `APPLE_PASS_P12_PASSWORD` y `APPLE_WWDR_CERT`.
+
 ### 6. Entregárselo al dueño
 1. **Justo después del despliegue**, el dueño entra a su dirección y **crea la primera cuenta**: la primera cuenta registrada queda automáticamente como dueña. Hazlo antes de compartir la dirección con nadie más.
 2. Sigue el **asistente de configuración**: nombre, logo, colores, sucursales, contacto y moneda.
@@ -94,6 +96,29 @@ Si el restaurante no quiere avisos push, sáltate este paso: la app funciona igu
 4. Invita a su equipo desde **Cuenta → Tu negocio → Equipo**.
 
 Desde ese momento recibe cada actualización junto con los demás.
+
+## Apple Wallet para el pase de sellos (opcional)
+
+Sin esto, el pase de sellos funciona igual dentro de la página; solo no aparece el botón "Agregar a Apple Wallet". Se hace **una vez** y el mismo certificado sirve para todos los restaurantes.
+
+1. Necesitas una cuenta de [Apple Developer](https://developer.apple.com) (99 USD al año).
+2. **Certificates, Identifiers & Profiles → Identifiers → +** → *Pass Type IDs*. Identificador, por ejemplo `pass.com.tuempresa.sellos`.
+3. En la Mac, **Acceso a Llaveros → Asistente de certificados → Solicitar un certificado de una autoridad de certificación**, guardado en el disco.
+4. **Certificates → +** → *Pass Type ID Certificate*, elige el identificador del paso 2 y sube la solicitud del paso 3. Descarga el `.cer` y ábrelo para instalarlo en el llavero.
+5. En **Acceso a Llaveros**, clic derecho sobre el certificado → **Exportar** como `.p12`, con una contraseña.
+6. Descarga el certificado intermedio **Worldwide Developer Relations – G4** desde [apple.com/certificateauthority](https://www.apple.com/certificateauthority/) (`AppleWWDRCAG4.cer`).
+7. Convierte los dos archivos a texto en la Terminal: `base64 -i pase.p12 | pbcopy` (y lo mismo con `AppleWWDRCAG4.cer`).
+8. En **Vercel → Settings → Environment Variables** de cada restaurante:
+
+   | Variable | Valor |
+   |---|---|
+   | `APPLE_PASS_P12` | El texto del `.p12` (paso 7) |
+   | `APPLE_PASS_P12_PASSWORD` | La contraseña del paso 5 |
+   | `APPLE_WWDR_CERT` | El texto de `AppleWWDRCAG4.cer` |
+
+9. **Redeploy.** En **Promociones → Pase de sellos** debe decir "Apple Wallet conectado" (también lo dice `https://su-dominio/api/wallet/status`).
+
+El Pass Type ID y el Team ID salen solos del certificado. El certificado vence cada año: se renueva en el mismo lugar y se cambian las variables.
 
 ## Lo que hay en `supabase/migrations/`
 
@@ -111,5 +136,6 @@ Desde ese momento recibe cada actualización junto con los demás.
 | `20261020090000_mostrar_nosotros.sql` | El dueño puede ocultar la página Nosotros a los clientes. |
 | `20261020120000_codigos_promocionales.sql` | Códigos promocionales: los códigos, cada canje y el código usado en cada pedido. |
 | `20261020150000_setup_con_dueno.sql` | En cuanto existe una cuenta de dueño, /setup da 404 a todos los demás. |
+| `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

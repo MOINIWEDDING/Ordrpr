@@ -1,4 +1,4 @@
-export const metadata = { title: 'Códigos promocionales' };
+export const metadata = { title: 'Promociones' };
 
 export default function PromocionesLayout({ children }) {
   return children;

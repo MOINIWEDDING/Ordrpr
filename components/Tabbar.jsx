@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
+import { useLoyaltySettings } from '@/lib/loyalty';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
 
 const GUEST_TABS = [
@@ -11,6 +12,8 @@ const GUEST_TABS = [
   { href: '/nosotros', label: 'Nosotros', icon: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></> },
   { href: '/pedidos', label: 'Pedidos', icon: <><path d="M6 3h9l3 3v15H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></> },
 ];
+
+const PASS_TAB = { href: '/pase', label: 'Pase', icon: <><rect x="3.5" y="5" width="17" height="14" rx="3" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /></> };
 
 const STAFF_TABS = [
   { href: '/', label: 'Inicio', icon: <path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" /> },
@@ -29,13 +32,15 @@ export default function Tabbar() {
   const { profile, isStaff, isComensal } = useAuth();
   const { unseenCount } = useOrdersNotify();
   const { settings } = useSettings();
+  const { loyalty } = useLoyaltySettings();
 
   // En la pantalla de bienvenida/login (Cuenta sin sesión) no mostramos la barra,
   // para que se sienta como una pantalla propia, sin navegación detrás.
   if (pathname === '/cuenta' && !profile) return null;
 
   const baseTabs = (isStaff ? STAFF_TABS : isComensal ? COMENSAL_TABS : GUEST_TABS)
-    .filter((t) => t.href !== '/nosotros' || settings.show_nosotros !== false);
+    .filter((t) => t.href !== '/nosotros' || settings.show_nosotros !== false)
+    .concat(!isStaff && !isComensal && loyalty.enabled ? [PASS_TAB] : []);
   const tabs = [...baseTabs, { href: '/cuenta', label: 'Cuenta', icon: <><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></> }];
 
   return (
