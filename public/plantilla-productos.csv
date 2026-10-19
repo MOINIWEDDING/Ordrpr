@@ -1,0 +1,8 @@
+categoria,nombre,precio,costo,descripcion,etiquetas,bebida,destacado,mostrar_en_inicio,precio_USD,precio_EUR,categoria_icono,categoria_color
+Entradas,Tostones con salsa rosada,250,90,"Plátano verde frito, salsa de la casa","Criollo, Para compartir",no,no,si,,,acompanante,crema
+Entradas,Empanadas de queso,180,60,Tres unidades,Horneado,no,si,si,3.50,3.20,acompanante,crema
+Platos fuertes,Mofongo de camarones,650,280,"Plátano majado, camarones al ajillo","Criollo, Mariscos",no,si,si,12,11,carne,terracota
+Platos fuertes,La bandera,450,180,"Arroz, habichuelas, carne guisada y ensalada",Criollo,no,no,si,,,carne,terracota
+Bebidas,Jugo de chinola,150,40,Natural y bien frío,"Natural, Sin azúcar",si,no,si,2.75,2.50,bebida,verde
+Bebidas,Café dominicano,90,25,Colado al momento,Caliente,si,no,no,,,bebida,verde
+Postres,Habichuelas con dulce,200,70,Receta tradicional de Cuaresma,Temporada,no,no,si,,,postre,lila

@@ -13,6 +13,9 @@ import BrandSettingsForm from '@/components/BrandSettingsForm';
 import ThemeEditor from '@/components/ThemeEditor';
 import BranchesManager from '@/components/BranchesManager';
 import TeamManager from '@/components/TeamManager';
+import HomeOrderManager from '@/components/HomeOrderManager';
+import CsvImporter from '@/components/CsvImporter';
+import MenuDesignEditor from '@/components/MenuDesignEditor';
 
 export function Chevron({ className = '' }) {
   return <svg className={`acct-chevron ${className}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>;
@@ -75,6 +78,9 @@ export function ownerSections({ onGift }) {
       title: 'Personalización',
       sub: 'Los productos y categorías se editan directamente en Inicio y Menú (aparecen los controles al pasar el cursor). Aquí manejas las fotos, los banners y la página Nosotros.',
       tools: [
+        { id: 'homeorder', title: 'Orden del inicio', desc: 'Sube, baja u oculta categorías y productos del inicio.', render: () => <HomeOrderManager /> },
+        { id: 'csv', title: 'Importar productos (CSV)', desc: 'Carga o actualiza muchos productos y categorías de una vez.', render: () => <CsvImporter /> },
+        { id: 'menudesign', title: 'Diseño del menú', desc: 'Tu propio CSS y HTML para el menú tipo carta.', render: () => <MenuDesignEditor /> },
         { id: 'photos', title: 'Fotos del sitio', desc: 'Portada de acceso, portada, ambiente, galería y mapa.', render: () => <SitePhotos /> },
         { id: 'offers', title: 'Banners de oferta', desc: 'Los anuncios que se deslizan en Inicio.', render: () => <OffersCarousel /> },
         {

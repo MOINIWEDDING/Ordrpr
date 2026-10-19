@@ -4,7 +4,6 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useUploader } from '@/hooks/useUploader';
 import { isVideoUrl } from '@/lib/upload';
-import Uploader from './Uploader';
 import Modal from './Modal';
 import Reveal from './Reveal';
 import BrandLogo from './BrandLogo';
@@ -112,6 +111,15 @@ export default function OffersCarousel() {
   );
 }
 
+// Accesos rápidos para el enlace del botón del banner.
+const LINK_SHORTCUTS = [
+  { label: 'Menú', href: '/menu' },
+  { label: 'Visítanos', href: '/visitanos' },
+  { label: 'Nosotros', href: '/nosotros' },
+];
+
+// Editor del banner con el mismo estilo que el de productos: vista previa en vivo arriba (tocarla
+// elige la foto o el video) y los datos agrupados debajo.
 function OfferModal({ offer, onClose, onSaved }) {
   const uploader = useUploader();
   const [title, setTitle] = useState(offer ? offer.title : '');
@@ -119,6 +127,7 @@ function OfferModal({ offer, onClose, onSaved }) {
   const [ctaText, setCtaText] = useState(offer ? (offer.cta_text || 'Ver menú') : 'Ver menú');
   const [ctaLink, setCtaLink] = useState(offer ? (offer.cta_link || '/menu') : '/menu');
   const [msg, setMsg] = useState({ text: '', type: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (offer && offer.image_url) uploader.setUrl(offer.image_url); }, []); // eslint-disable-line
 
@@ -134,6 +143,7 @@ function OfferModal({ offer, onClose, onSaved }) {
       cta_text: ctaText.trim() || 'Ver menú',
       cta_link: ctaLink.trim() || '/menu',
     };
+    setSaving(true);
     let error;
     if (offer) {
       payload.updated_at = new Date().toISOString();
@@ -141,42 +151,94 @@ function OfferModal({ offer, onClose, onSaved }) {
     } else {
       ({ error } = await sb.from('offers').insert(payload));
     }
+    setSaving(false);
     if (error) { setMsg({ text: error.message, type: 'error' }); return; }
     await onSaved();
     onClose();
   }
 
+  const pick = () => uploader.inputRef.current && uploader.inputRef.current.click();
+
   return (
-    <Modal onClose={onClose}>
-      <div className="modal-top">
-        <p className="eyebrow">Banners de oferta</p>
-        <h3>{offer ? 'Editar banner' : 'Agregar banner'}</h3>
-        <p className="modal-sub">Se muestra en el carrusel de ofertas del inicio.</p>
-      </div>
-      <div className="modal-body">
-        <form onSubmit={handleSubmit}>
-          <div className="field"><label htmlFor="offerTitle">Título</label>
-            <input id="offerTitle" type="text" placeholder="Cata guiada este fin de semana" required value={title} onChange={(e) => setTitle(e.target.value)} />
+    <Modal onClose={onClose} wide>
+      <form onSubmit={handleSubmit} className="pe">
+        <div className="pe-head">
+          <p className="eyebrow">Banners de oferta</p>
+          <h3>{offer ? 'Editar banner' : 'Nuevo banner'}</h3>
+        </div>
+
+        <div className="pe-banner">
+          <button type="button" className="pe-banner-media" onClick={pick} disabled={uploader.uploading} aria-label={uploader.previewUrl ? 'Cambiar foto o video' : 'Elegir foto o video'}>
+            {uploader.previewUrl
+              ? (uploader.previewIsVideo
+                ? <video src={uploader.previewUrl} autoPlay muted loop playsInline />
+                : <img src={uploader.previewUrl} alt="" />)
+              : (
+                <span className="pe-photo-empty pe-banner-empty">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13.5" r="3.4" /></svg>
+                  Agregar foto o video
+                </span>
+              )}
+            {uploader.previewUrl && !uploader.uploading && <span className="pe-photo-change">Cambiar</span>}
+            {uploader.uploading && <span className="pe-photo-progress"><i style={{ width: `${Math.max(uploader.progress, 12)}%` }} /></span>}
+          </button>
+          {uploader.previewUrl && !uploader.uploading && (
+            <button type="button" className="pe-photo-remove" onClick={uploader.reset} aria-label="Quitar foto o video">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          )}
+          <div className="offer-content pe-banner-content">
+            <p className="eyebrow">Oferta</p>
+            <h3>{title.trim() || 'Título del banner'}</h3>
+            {subtitle.trim() && <p>{subtitle}</p>}
+            <span className="offer-cta">
+              {ctaText.trim() || 'Ver menú'}
+              <svg className="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
           </div>
-          <div className="field"><label htmlFor="offerSub">Subtítulo</label>
-            <input id="offerSub" type="text" placeholder="Tres orígenes dominicanos, guiada por la barra." value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+          <input ref={uploader.inputRef} type="file" accept="image/*,video/mp4,video/webm" hidden onChange={uploader.onInputChange} />
+        </div>
+        <p className="pe-photo-hint">Foto o video horizontal 16:9 · video de hasta 20 s</p>
+        {uploader.error && <div className="form-msg show error">{uploader.error}</div>}
+
+        <section className="pe-section">
+          <h4>Texto</h4>
+          <div className="field">
+            <label htmlFor="offerTitle">Título</label>
+            <input id="offerTitle" type="text" placeholder="2×1 en jugos naturales" required value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
-          <div className="field"><label>Foto del banner</label><Uploader uploader={uploader} /></div>
-          <div className="field-row">
-            <div className="field"><label htmlFor="offerCta">Texto del botón</label>
-              <input id="offerCta" type="text" placeholder="Reservar" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          <div className="field">
+            <label htmlFor="offerSub">Subtítulo</label>
+            <input id="offerSub" type="text" placeholder="Todos los martes, de 3 a 6 p. m." value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+          </div>
+        </section>
+
+        <section className="pe-section">
+          <h4>Botón</h4>
+          <div className="field">
+            <label htmlFor="offerCta">Texto</label>
+            <input id="offerCta" type="text" placeholder="Ver menú" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="offerLink">Lleva a</label>
+            <div className="pe-link-chips">
+              {LINK_SHORTCUTS.map((l) => (
+                <button key={l.href} type="button" className={`pe-link-chip${ctaLink === l.href ? ' active' : ''}`} onClick={() => setCtaLink(l.href)}>{l.label}</button>
+              ))}
             </div>
-            <div className="field"><label htmlFor="offerLink">Enlace del botón</label>
-              <input id="offerLink" type="text" placeholder="/menu" value={ctaLink} onChange={(e) => setCtaLink(e.target.value)} />
-            </div>
+            <input id="offerLink" type="text" placeholder="/menu o https://…" value={ctaLink} onChange={(e) => setCtaLink(e.target.value)} />
           </div>
-          {msg.text && <div className={`form-msg show ${msg.type}`}>{msg.text}</div>}
-          <div className="modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-amber" disabled={uploader.uploading}>{uploader.uploading ? 'Subiendo…' : 'Guardar banner'}</button>
-          </div>
-        </form>
-      </div>
+        </section>
+
+        {msg.text && <div className={`form-msg show ${msg.type}`}>{msg.text}</div>}
+
+        <div className="pe-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-amber" disabled={uploader.uploading || saving}>
+            {uploader.uploading ? 'Subiendo…' : saving ? 'Guardando…' : (offer ? 'Guardar cambios' : 'Crear banner')}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }
