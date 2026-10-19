@@ -7,6 +7,7 @@ import { useOrdersNotify } from '@/context/OrdersNotifyContext';
 import { useBranch } from '@/context/BranchContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
+import { formatIn } from '@/lib/settingsDefaults';
 import BrandLogo from '@/components/BrandLogo';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
@@ -174,7 +175,7 @@ function OrdersList() {
           )}
 
           <div className="order-card-bottom">
-            <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}</span>
+            <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}{order.payment_currency ? ` · ${formatIn(order.payment_currency.total, order.payment_currency)}` : ''}</span>
             <select
               className="order-status"
               value={order.status}

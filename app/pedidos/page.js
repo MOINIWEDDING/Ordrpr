@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
+import { formatIn } from '@/lib/settingsDefaults';
 import { useBranch } from '@/context/BranchContext';
 import AuthGate from '@/components/AuthGate';
 import Reveal from '@/components/Reveal';
@@ -113,7 +114,7 @@ function OrderCard({ order, branchName }) {
         </p>
       )}
       <div className="order-card-bottom">
-        <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}</span>
+        <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}{order.payment_currency ? ` · ${formatIn(order.payment_currency.total, order.payment_currency)}` : ''}</span>
         <span className={`order-status-badge status-${order.status}`}>{ORDER_STATUS_LABELS[order.status] || order.status}</span>
       </div>
     </div>
