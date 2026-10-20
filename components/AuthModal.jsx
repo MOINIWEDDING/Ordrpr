@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { AuthMedia } from './AuthHero';
 import './auth.css';
@@ -30,6 +31,8 @@ export default function AuthModal() {
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
+  const [newsletter, setNewsletter] = useState(false);
+  const { settings } = useSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -76,7 +79,8 @@ export default function AuthModal() {
         if (!name.trim()) { setMsg({ text: 'Escribe tu nombre.', type: 'error' }); setBusy(false); return; }
         if (!gender) { setMsg({ text: 'Elige una opción de sexo.', type: 'error' }); setBusy(false); return; }
         if (!age || Number(age) < 1 || Number(age) > 120) { setMsg({ text: 'Escribe una edad válida.', type: 'error' }); setBusy(false); return; }
-        const result = await signup(email.trim().toLowerCase(), password, name.trim(), 'cliente', { gender, age });
+        if (!newsletter) { setMsg({ text: 'Para crear tu cuenta, acepta recibir las novedades por correo.', type: 'error' }); setBusy(false); return; }
+        const result = await signup(email.trim().toLowerCase(), password, name.trim(), 'cliente', { gender, age, newsletter });
         if (result.needsConfirmation) {
           setMsg({ text: 'Cuenta creada. Revisa tu correo para confirmar antes de iniciar sesión.', type: 'ok' });
           setTimeout(closeAuth, 2200);
@@ -179,6 +183,14 @@ export default function AuthModal() {
             </div>
 
             {!isLogin && <p className="auth-hint">Mínimo 6 caracteres.</p>}
+
+            {!isLogin && (
+              <label className="auth-check" htmlFor="authNewsletter">
+                <input id="authNewsletter" type="checkbox" checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} required />
+                <span className="auth-check-box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+                <span>Acepto recibir novedades y promociones de {settings.brand_name || 'este negocio'} por correo.</span>
+              </label>
+            )}
 
             {msg.text && <div className={`auth-msg ${msg.type}`} role="alert">{msg.text}</div>}
 

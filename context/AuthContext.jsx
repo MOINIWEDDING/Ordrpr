@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
 
   const signup = useCallback(async (email, password, name, roleChosen, extra = {}) => {
     const { data, error } = await sb.auth.signUp({
-      email, password, options: { data: { name, role: roleChosen, gender: extra.gender || '', age: extra.age || '' } },
+      email, password, options: { data: { name, role: roleChosen, gender: extra.gender || '', age: extra.age || '', newsletter: extra.newsletter ? 'true' : '' } },
     });
     if (error) throw new Error(error.message);
     if (data.session === null) {
