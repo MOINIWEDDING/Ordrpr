@@ -27,13 +27,15 @@ const loyalOrder = (a, b) => b.total_stamps - a.total_stamps || b.rewards - a.re
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') : '—');
 const isoDay = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 
-function toCsv(rows) {
+function toCsv(rows, origin) {
   const cols = [
     ['nombre', (u) => u.name], ['correo', (u) => u.email], ['registrado', (u) => isoDay(u.created_at)],
     ['newsletter', (u) => (u.newsletter ? 'si' : 'no')], ['newsletter_fecha', (u) => isoDay(u.newsletter_at)],
     ['pedidos', (u) => u.orders], ['total_gastado', (u) => Math.round(Number(u.spent) || 0)], ['ultimo_pedido', (u) => isoDay(u.last_order)],
     ['sellos_actuales', (u) => u.stamps], ['sellos_totales', (u) => u.total_stamps], ['premios', (u) => u.rewards],
     ['sexo', (u) => GENDER[u.gender] || ''], ['edad', (u) => u.age || ''],
+    // para pegarlo en cada correo de la campaña: con él, el cliente se da de baja sin iniciar sesión
+    ['enlace_baja', (u) => (u.newsletter_token ? `${origin}/baja?t=${u.newsletter_token}` : '')],
   ];
   const cell = (v) => {
     const t = String(v ?? '');
@@ -87,7 +89,7 @@ export default function UsuariosPage() {
 
   function exportCsv() {
     // BOM para que Excel lea bien los acentos
-    const blob = new Blob(['﻿', toCsv(shown)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\uFEFF', toCsv(shown, window.location.origin)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -180,7 +182,7 @@ export default function UsuariosPage() {
                       <span><b>{money(Math.round(Number(u.spent) || 0))}</b><small>gastado</small></span>
                       <span><b>{u.total_stamps}</b><small>sellos</small></span>
                     </span>
-                    <span className={`users-news${u.newsletter ? ' on' : ''}`}>{u.newsletter ? 'Newsletter' : 'Sin newsletter'}</span>
+                    <span className={`users-news${u.newsletter ? ' on' : ''}`}>{u.newsletter ? 'Newsletter' : u.newsletter_unsub_at ? 'Se dio de baja' : 'Sin newsletter'}</span>
                   </li>
                 ))}
               </ul>
