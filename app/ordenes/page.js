@@ -12,6 +12,7 @@ import { describeOptions } from '@/lib/productOptions';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { sendOrderPush, orderPushNotice } from '@/lib/push';
+import { notifyWallet } from '@/lib/loyalty';
 
 const STATUS_LABELS = {
   nueva: 'Nueva',
@@ -98,12 +99,15 @@ function OrdersList() {
   }, [load]);
 
   async function updateStatus(id, status) {
+    const wasNew = (orders.find((o) => o.id === id) || {}).status === 'nueva';
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
     if (BARRO_CONFIGURED) {
       const { error } = await sb.from('orders').update({ status }).eq('id', id);
       if (!error && status !== 'nueva') {
         // aviso al teléfono del cliente (si lo activó); el dueño ve qué pasó
         sendOrderPush(id).then((res) => { const note = orderPushNotice(res); if (note) showToast(note); });
+        // si el pedido sumó un sello, su pase de Apple Wallet se actualiza
+        if (wasNew) notifyWallet({ orderId: id });
       }
     }
   }

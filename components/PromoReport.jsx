@@ -224,7 +224,7 @@ function CodeReport({ code, data, items, brand, place }) {
 
 function AllCodesReport({ data, items, brand, place }) {
   const total = useMemo(() => promoStats(null, data), [data]);
-  const rows = useMemo(() => data.codes.map((c) => {
+  const rows = useMemo(() => data.codes.filter((c) => c.source !== 'loyalty').map((c) => {
     const s = promoStats(c, data);
     return { c, s, status: promoStatus(c, s.uses) };
   }).sort((a, b) => b.s.revenue - a.s.revenue || b.s.uses - a.s.uses), [data]);

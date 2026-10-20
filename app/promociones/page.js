@@ -10,6 +10,7 @@ import { loadPromoData, missingPromoTables, promoStats } from '@/lib/promoStats'
 import PromoTicket from '@/components/PromoTicket';
 import PromoCodeForm from '@/components/PromoCodeForm';
 import PromoCodeDetail from '@/components/PromoCodeDetail';
+import LoyaltyAdmin from '@/components/LoyaltyAdmin';
 
 const FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -28,6 +29,7 @@ export default function PromocionesPage() {
   const [filter, setFilter] = useState('all');
   const [editing, setEditing] = useState(null); // null | 'new' | código
   const [openId, setOpenId] = useState(null);
+  const [view, setView] = useState('codes'); // 'codes' | 'pass'
 
   useEffect(() => {
     if (profile && !isStaff) router.push('/');
@@ -46,7 +48,8 @@ export default function PromocionesPage() {
   }, []);
   useEffect(() => { if (isStaff) load(); }, [isStaff, load]);
 
-  const rows = useMemo(() => data.codes.map((c) => {
+  // los premios del pase de sellos son códigos personales: se ven en su propia pestaña
+  const rows = useMemo(() => data.codes.filter((c) => c.source !== 'loyalty').map((c) => {
     const stats = promoStats(c, data);
     return { code: c, stats, status: promoStatus(c, stats.uses), itemName: (items.find((i) => i.id === c.item_id) || {}).name };
   }), [data, items]);
@@ -65,15 +68,24 @@ export default function PromocionesPage() {
         <div className="section-head promo-head">
           <div>
             <p className="eyebrow">Panel del dueño</p>
-            <h2 style={{ fontSize: 24 }}>Códigos promocionales</h2>
+            <h2 style={{ fontSize: 24 }}>Promociones</h2>
           </div>
-          <button type="button" className="btn btn-amber promo-new" onClick={() => setEditing('new')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Nuevo código
-          </button>
+          {view === 'codes' && (
+            <button type="button" className="btn btn-amber promo-new" onClick={() => setEditing('new')}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Nuevo código
+            </button>
+          )}
         </div>
 
-        {loading ? (
+        <div className="seg-buttons promo-views" role="tablist" aria-label="Promociones">
+          <button type="button" role="tab" aria-selected={view === 'codes'} className={view === 'codes' ? 'active' : ''} onClick={() => setView('codes')}>Códigos</button>
+          <button type="button" role="tab" aria-selected={view === 'pass'} className={view === 'pass' ? 'active' : ''} onClick={() => setView('pass')}>Pase de sellos</button>
+        </div>
+
+        {view === 'pass' ? (
+          <LoyaltyAdmin items={items} />
+        ) : loading ? (
           <p className="empty-note">Cargando códigos…</p>
         ) : error ? (
           <div className="form-msg show error">{error}</div>
