@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useMenuItems, money } from '@/hooks/useMenuItems';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
@@ -137,6 +138,8 @@ function ClientView({ profile, logout }) {
           </div>
         )}
 
+        <NewsletterToggle profile={profile} />
+
         <LogoutButton logout={logout} />
       </div>
 
@@ -149,6 +152,39 @@ function ClientView({ profile, logout }) {
         )}
       </AnimatePresence>
     </section>
+  );
+}
+
+// El cliente decide si sigue recibiendo los correos del negocio (lo aceptó al registrarse).
+function NewsletterToggle({ profile }) {
+  const { refreshProfile } = useAuth();
+  const { settings } = useSettings();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!BARRO_CONFIGURED || profile.newsletter === undefined) return null;
+  const on = Boolean(profile.newsletter);
+
+  async function toggle(next) {
+    setBusy(true);
+    setError('');
+    const { error: err } = await sb.rpc('set_newsletter', { on_input: next });
+    if (err) setError('No se pudo guardar. Intenta de nuevo.');
+    await refreshProfile();
+    setBusy(false);
+  }
+
+  return (
+    <div className="acct-newsletter">
+      <div className="pe-toggles">
+        <label className={`pe-toggle${on ? ' on' : ''}`} htmlFor="acctNewsletter">
+          <span className="pe-toggle-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg></span>
+          <span className="pe-toggle-text"><b>Novedades por correo</b><small>Promociones de {settings.brand_name || 'este negocio'}</small></span>
+          <input id="acctNewsletter" type="checkbox" role="switch" checked={on} disabled={busy} onChange={(e) => toggle(e.target.checked)} />
+          <span className="pe-switch" aria-hidden="true" />
+        </label>
+      </div>
+      {error && <div className="form-msg show error">{error}</div>}
+    </div>
   );
 }
 

@@ -156,5 +156,6 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 | `20261020150000_setup_con_dueno.sql` | En cuanto existe una cuenta de dueño, /setup da 404 a todos los demás. |
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
+| `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.
