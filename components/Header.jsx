@@ -21,6 +21,7 @@ const STAFF_LINKS = [
   { href: '/ordenes', label: 'Órdenes', badge: true },
   { href: '/estadisticas', label: 'Estadísticas' },
   { href: '/promociones', label: 'Promociones' },
+  { href: '/usuarios', label: 'Usuarios' },
 ];
 
 const COMENSAL_LINKS = [

@@ -17,6 +17,8 @@ export default function PasePage() {
   const [card, setCard] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
+  const [android, setAndroid] = useState(false);
+  useEffect(() => { setAndroid(/android/i.test(navigator.userAgent)); }, []);
 
   const load = useCallback(async () => {
     if (!BARRO_CONFIGURED || !profile) return;
@@ -56,11 +58,26 @@ export default function PasePage() {
             stamps={card ? card.stamps : 0} rewardsReady={ready.length}
             customer={profile ? profile.name : ''}
           />
-          {profile && card && wallet && wallet.enabled && (
-            <a className="wallet-btn" href={`/api/wallet/pass?serial=${card.serial}&token=${card.auth_token}`}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M3 9h18M3 13h18" /></svg>
-              <span><small>Agregar a</small>Apple Wallet</span>
-            </a>
+          {profile && card && wallet && (
+            <div className={`wallet-btns${android ? ' android-first' : ''}`}>
+              {wallet.enabled && (
+                <a className="wallet-btn" href={`/api/wallet/pass?serial=${card.serial}&token=${card.auth_token}`}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M3 9h18M3 13h18" /></svg>
+                  <span><small>Agregar a</small>Apple Wallet</span>
+                </a>
+              )}
+              {wallet.google && wallet.google.enabled && (
+                <a className="wallet-btn wallet-btn-google" href={`/api/wallet/google/save?serial=${card.serial}&token=${card.auth_token}`}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="5" rx="2" fill="#4285F4" stroke="none" />
+                    <rect x="3" y="8" width="18" height="5" rx="2" fill="#34A853" stroke="none" />
+                    <rect x="3" y="12" width="18" height="5" rx="2" fill="#FBBC04" stroke="none" />
+                    <path d="M3 15h7.5a3 3 0 0 0 3 0H21v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#EA4335" stroke="none" />
+                  </svg>
+                  <span><small>Agregar a</small>Google Wallet</span>
+                </a>
+              )}
+            </div>
           )}
         </div>
 

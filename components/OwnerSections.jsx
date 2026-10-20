@@ -137,8 +137,17 @@ export function ownerSections({ onGift }) {
     {
       id: 'clientes',
       eyebrow: 'Clientes',
-      title: 'Gift cards y avatares',
-      sub: 'Lo que tus clientes compran, reciben y eligen para su perfil.',
+      title: 'Usuarios, gift cards y avatares',
+      sub: 'Quiénes son tus clientes, lo que compran, reciben y eligen para su perfil.',
+      lead: (
+        <Link href="/usuarios" className="acct-cta acct-cta-dark">
+          <span>
+            <b>Usuarios</b>
+            <small>Correos, clientes más fieles y exportar en CSV.</small>
+          </span>
+          <Chevron />
+        </Link>
+      ),
       tools: [
         {
           id: 'giftdesigns',

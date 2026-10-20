@@ -38,7 +38,7 @@ export default function LoyaltyAdmin({ items }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [cards, setCards] = useState([]);
-  const [names, setNames] = useState({});
+  const [users, setUsers] = useState([]); // owner_users: clientes con su correo
   const [counts, setCounts] = useState({ stamps: 0, rewards: 0, used: 0 });
   const [givingTo, setGivingTo] = useState('');
   const [query, setQuery] = useState('');
@@ -63,13 +63,9 @@ export default function LoyaltyAdmin({ items }) {
       sb.from('promo_codes').select('id').eq('source', 'loyalty'),
       sb.from('promo_redemptions').select('code_id'),
     ]);
-    const list = c.data || [];
-    setCards(list);
-    const ids = list.map((x) => x.user_id);
-    if (ids.length) {
-      const { data: profs } = await sb.from('profiles').select('id, name').in('id', ids);
-      setNames(Object.fromEntries((profs || []).map((p) => [p.id, p.name])));
-    }
+    setCards(c.data || []);
+    const { data: us } = await sb.rpc('owner_users');
+    setUsers((us || []).filter((u) => u.role === 'cliente'));
     const rewardIds = new Set((codes.data || []).map((x) => x.id));
     setCounts({
       stamps: (ev.data || []).filter((e) => e.kind !== 'reward').length,
@@ -78,18 +74,6 @@ export default function LoyaltyAdmin({ items }) {
     });
   }, []);
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
-
-  // Los clientes con cuenta que todavía no tienen pase también se pueden buscar para darles un sello.
-  const [found, setFound] = useState([]);
-  useEffect(() => {
-    const q = query.trim();
-    if (!BARRO_CONFIGURED || q.length < 2) { setFound([]); return undefined; }
-    const t = setTimeout(async () => {
-      const { data } = await sb.from('profiles').select('id, name').eq('role', 'cliente').ilike('name', `%${q}%`).limit(8);
-      setFound(data || []);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [query]);
 
   const preview = useMemo(() => form && ({
     ...form,
@@ -145,19 +129,26 @@ export default function LoyaltyAdmin({ items }) {
     loadCustomers();
   }
 
-  const shown = query.trim().length >= 2
-    ? [...cards.filter((c) => (names[c.user_id] || '').toLowerCase().includes(query.trim().toLowerCase())),
-      ...found.filter((p) => !cards.some((c) => c.user_id === p.id)).map((p) => ({ id: p.id, user_id: p.id, stamps: 0, total_stamps: 0, rewards_earned: 0, fresh: true }))]
-    : cards;
+  // Los más fieles primero (sellos en total, luego premios y pedidos); al buscar, cualquier cliente con cuenta.
+  const q = query.trim().toLowerCase();
+  const ranked = [...users].sort((a, b) => b.total_stamps - a.total_stamps || b.rewards - a.rewards || Number(b.orders) - Number(a.orders));
+  const shown = q.length >= 2
+    ? ranked.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(q)).slice(0, 30)
+    : ranked.filter((u) => u.total_stamps > 0).slice(0, 30);
 
   return (
     <div className="loyalty-admin">
       <div className={`loyalty-switch${form.enabled ? ' on' : ''}`}>
         <span>
           <b>{form.enabled ? 'El pase está activo' : 'El pase está apagado'}</b>
-          <small className={`wallet-chip${wallet && wallet.enabled ? ' ok' : ''}`}>
-            {wallet ? (wallet.enabled ? 'Apple Wallet conectado' : 'Apple Wallet sin configurar') : '…'}
-          </small>
+          <span className="wallet-chips">
+            <small className={`wallet-chip${wallet && wallet.enabled ? ' ok' : ''}`}>
+              {wallet ? (wallet.enabled ? 'Apple Wallet conectado' : 'Apple Wallet sin configurar') : '…'}
+            </small>
+            <small className={`wallet-chip${wallet && wallet.google && wallet.google.enabled ? ' ok' : ''}`}>
+              {wallet ? (wallet.google && wallet.google.enabled ? 'Google Wallet conectado' : 'Google Wallet sin configurar') : '…'}
+            </small>
+          </span>
         </span>
         <label className="pe-toggle" htmlFor="loyaltyOn">
           <input id="loyaltyOn" type="checkbox" role="switch" checked={form.enabled} onChange={(e) => save({ enabled: e.target.checked })} disabled={saving} />
@@ -342,23 +333,25 @@ export default function LoyaltyAdmin({ items }) {
 
       <div className="loyalty-customers">
         <div className="loyalty-customers-head">
-          <h3>Clientes</h3>
-          <input type="search" placeholder="Buscar cliente…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <h3>Clientes más fieles</h3>
+          <input type="search" placeholder="Buscar por nombre o correo…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         {shown.length === 0 ? (
-          <p className="empty-note">{query.trim().length >= 2 ? 'Nadie con ese nombre.' : 'Todavía nadie tiene sellos.'}</p>
+          <p className="empty-note">{q.length >= 2 ? 'Nadie con ese nombre o correo.' : 'Todavía nadie tiene sellos.'}</p>
         ) : (
           <ul className="loyalty-list">
-            {shown.map((c) => (
-              <li key={c.id}>
+            {shown.map((u, i) => (
+              <li key={u.id}>
+                {q.length < 2 && <span className={`loyalty-rank${i < 3 ? ` top-${i + 1}` : ''}`}>{i + 1}</span>}
                 <span className="loyalty-list-name">
-                  <b>{names[c.user_id] || (c.fresh && (found.find((p) => p.id === c.user_id) || {}).name) || 'Cliente'}</b>
-                  <small>{c.total_stamps} sello{c.total_stamps === 1 ? '' : 's'} en total · {c.rewards_earned} premio{c.rewards_earned === 1 ? '' : 's'}</small>
+                  <b>{u.name || 'Cliente'}</b>
+                  <a href={`mailto:${u.email}`}>{u.email}</a>
+                  <small>{u.total_stamps} sello{u.total_stamps === 1 ? '' : 's'} · {u.rewards} premio{u.rewards === 1 ? '' : 's'} · {u.orders} pedido{Number(u.orders) === 1 ? '' : 's'}</small>
                 </span>
-                <span className="loyalty-dots" aria-label={`${c.stamps} de ${form.stamps_required}`}>
-                  {Array.from({ length: form.stamps_required }, (_, i) => <i key={i} className={i < c.stamps ? 'on' : ''} />)}
+                <span className="loyalty-dots" aria-label={`${u.stamps} de ${form.stamps_required}`}>
+                  {Array.from({ length: form.stamps_required }, (_, k) => <i key={k} className={k < u.stamps ? 'on' : ''} />)}
                 </span>
-                <button type="button" className="hours-add" onClick={() => giveStamp(c.user_id)} disabled={givingTo === c.user_id || !form.enabled}>+1 sello</button>
+                <button type="button" className="hours-add" onClick={() => giveStamp(u.id)} disabled={givingTo === u.id || !form.enabled}>+1 sello</button>
               </li>
             ))}
           </ul>

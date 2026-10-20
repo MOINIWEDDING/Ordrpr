@@ -155,3 +155,12 @@ select.auth-input.is-empty{color:var(--auth-mute);}
   .auth-orb, .auth-bubble, .auth-card, .auth-overlay{animation:none;}
   .auth-media-fill{transition:none;}
 }
+
+/* newsletter al registrarse */
+.auth-check{position:relative; display:flex; align-items:flex-start; gap:12px; margin-top:16px; padding:0 4px 0 20px; font-size:13px; line-height:1.45; color:var(--auth-ink, #241C13); cursor:pointer;}
+.auth-check input{position:absolute; left:20px; top:0; width:22px; height:22px; margin:0; opacity:0;}
+.auth-check-box{flex:none; width:22px; height:22px; border-radius:7px; border:1.5px solid currentColor; display:inline-flex; align-items:center; justify-content:center; opacity:.55; transition:background .15s, opacity .15s;}
+.auth-check-box svg{width:15px; height:15px; fill:none; stroke:#fff; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; opacity:0;}
+.auth-check input:checked + .auth-check-box{background:var(--amber); border-color:var(--amber); opacity:1;}
+.auth-check input:checked + .auth-check-box svg{opacity:1;}
+.auth-check input:focus-visible + .auth-check-box{outline:2px solid var(--amber); outline-offset:2px;}

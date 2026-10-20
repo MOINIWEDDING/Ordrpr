@@ -87,7 +87,7 @@ Si el restaurante no quiere avisos push, sáltate este paso: la app funciona igu
 
 3. **Deploy.** Después, en **Settings → Domains**, conecta su dominio.
 
-   Para Apple Wallet (opcional, ver abajo) se agregan además `APPLE_PASS_P12`, `APPLE_PASS_P12_PASSWORD` y `APPLE_WWDR_CERT`.
+   Para Apple Wallet y Google Wallet (opcionales, ver abajo) se agregan además `APPLE_PASS_P12`, `APPLE_PASS_P12_PASSWORD`, `APPLE_WWDR_CERT`, `GOOGLE_WALLET_ISSUER_ID` y `GOOGLE_WALLET_SERVICE_ACCOUNT`.
 
 ### 6. Entregárselo al dueño
 1. **Justo después del despliegue**, el dueño entra a su dirección y **crea la primera cuenta**: la primera cuenta registrada queda automáticamente como dueña. Hazlo antes de compartir la dirección con nadie más.
@@ -120,6 +120,24 @@ Sin esto, el pase de sellos funciona igual dentro de la página; solo no aparece
 
 El Pass Type ID y el Team ID salen solos del certificado. El certificado vence cada año: se renueva en el mismo lugar y se cambian las variables.
 
+## Google Wallet para el pase de sellos (opcional)
+
+Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparece el botón "Agregar a Google Wallet". Se hace **una vez** y sirve para todos los restaurantes.
+
+1. Entra a la [consola de Google Pay & Wallet](https://pay.google.com/business/console) con una cuenta de Google del negocio, abre **Google Wallet API** y copia el **Issuer ID**.
+2. En [Google Cloud](https://console.cloud.google.com), crea un proyecto (o usa uno), busca **Google Wallet API** y actívala.
+3. **IAM y administración → Cuentas de servicio → Crear cuenta de servicio**. Dentro de ella, **Claves → Agregar clave → JSON**: se descarga un archivo `.json`.
+4. Vuelve a la consola de Google Pay & Wallet → **Usuarios → Invitar**, pega el correo de la cuenta de servicio (termina en `iam.gserviceaccount.com`) con acceso de **Desarrollador**.
+5. En **Vercel → Settings → Environment Variables** de cada restaurante:
+
+   | Variable | Valor |
+   |---|---|
+   | `GOOGLE_WALLET_ISSUER_ID` | El Issuer ID del paso 1 |
+   | `GOOGLE_WALLET_SERVICE_ACCOUNT` | Todo el contenido del `.json` del paso 3 |
+
+6. **Redeploy.** En **Promociones → Pase de sellos** debe decir "Google Wallet conectado".
+7. Mientras Google no apruebe tu cuenta de emisor, solo los correos que agregues como **usuarios de prueba** en la consola pueden guardar el pase. Cuando todo funcione, pide la aprobación (**Solicitar acceso de publicación**) en la misma consola.
+
 ## Lo que hay en `supabase/migrations/`
 
 | Archivo | Qué hace |
@@ -137,5 +155,6 @@ El Pass Type ID y el Team ID salen solos del certificado. El certificado vence c
 | `20261020120000_codigos_promocionales.sql` | Códigos promocionales: los códigos, cada canje y el código usado en cada pedido. |
 | `20261020150000_setup_con_dueno.sql` | En cuanto existe una cuenta de dueño, /setup da 404 a todos los demás. |
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
+| `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.
