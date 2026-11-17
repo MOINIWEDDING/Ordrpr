@@ -24,9 +24,9 @@ import Link from 'next/link';
 const DELIVERY = 0; // no hay delivery; se sirve en el local
 
 const PAYMENT_METHODS = [
-  { id: 'gift_card', label: 'Gift Card', ready: true },
-  { id: 'efectivo', label: 'Efectivo', ready: true },
   { id: 'tarjeta', label: 'Tarjeta', ready: true },
+  { id: 'efectivo', label: 'Efectivo', ready: true },
+  { id: 'gift_card', label: 'Gift card', ready: true },
 ];
 
 export default function CartDrawer() {
@@ -42,6 +42,19 @@ export default function CartDrawer() {
   const [tabInfo, setTabInfo] = useState(null); // la cuenta tal como está (quiénes ya pidieron)
   const [joinTab, setJoinTab] = useState(null); // la mesa ya tiene cuenta: { tab_id, opened_name }
   const [joinCode, setJoinCode] = useState('');
+  const [payMethod, setPayMethod] = useState('tarjeta');
+  const [noteKey, setNoteKey] = useState(null); // la línea cuya nota se está escribiendo
+  const [showPromo, setShowPromo] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  // en pantallas anchas el carrito entra por la derecha como panel lateral
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 900px)');
+    const on = () => setIsWide(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
   useEffect(() => { if (!drawerOpen) setSentToTab(false); }, [drawerOpen]);
   useEffect(() => {
     if (!drawerOpen || !activeTab || !BARRO_CONFIGURED) { setTabInfo(null); return; }
@@ -345,21 +358,51 @@ export default function CartDrawer() {
     closeDrawer();
   }
 
+  // quiénes están en la mesa: a cada uno se le puede asignar lo que pidió
+  const tablePeople = (
+    <div className="field">
+      <label htmlFor="cartCompanion">En la mesa</label>
+      <div className="cart-people">
+        {people.map((p) => (
+          <span key={p} className="cart-person">
+            {p}
+            {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
+          </span>
+        ))}
+        <input id="cartCompanion" type="text" placeholder="+ Persona" maxLength={30} value={newCompanion}
+          onChange={(e) => setNewCompanion(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }}
+          onBlur={addCompanion} />
+      </div>
+    </div>
+  );
+
+  const itemCount = lines.reduce((n, l) => n + l.qty, 0);
+  const tabTotal = lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0);
+  const ctaLabel = tabFlow
+    ? (activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar' : 'Abrir cuenta y enviar')
+    : payMethod === 'gift_card' ? 'Pagar con gift card' : 'Confirmar pedido';
+  const ctaAmount = tabFlow ? money(tabTotal) : inCurrency(total);
+  const balance = profile ? Number(profile.gift_card_balance || 0) : 0;
+  const done = sentToTab || success;
+
   return (
     <AnimatePresence>
       {drawerOpen && (
         <motion.div
-          className="overlay show"
-          style={{ alignItems: 'flex-end' }}
+          className="overlay show cart-overlay"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         >
           <motion.div
-            className="modal cart-modal"
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+            className="cart-sheet"
+            role="dialog" aria-modal="true" aria-label="Tu pedido"
+            initial={isWide ? { x: '110%' } : { y: '100%' }} animate={isWide ? { x: 0 } : { y: 0 }} exit={isWide ? { x: '110%' } : { y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           >
-            {sentToTab ? (
+            {done ? (
+              <div className="cart-scroll cart-done">
+                {sentToTab ? (
               <div className="order-success">
                 <motion.div className="order-check" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.05 }}>
                   <motion.svg viewBox="0 0 24 24" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 0.25 }}><path d="M5 13l4 4L19 7" /></motion.svg>
@@ -433,275 +476,251 @@ export default function CartDrawer() {
                   </motion.div>
                 )}
               </div>
-              )
+              )) : null}
+              </div>
             ) : (
               <>
-                <div className="modal-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 60 }}>
-                  <h3 style={{ margin: 0 }}>Carrito</h3>
-                  {lines.length > 0 && (
-                    <button type="button" className="icon-btn" aria-label="Vaciar carrito" onClick={clear}>
-                      <svg className="icon" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>
+                <div className="cart-head">
+                  <div>
+                    <p className="eyebrow">{activeTab ? `Cuenta abierta · ${activeTab.table_label}` : branchInfo ? branchInfo.full : 'Tu pedido'}</p>
+                    <h3>Tu pedido{itemCount > 0 && <span className="cart-count">{itemCount}</span>}</h3>
+                  </div>
+                  <div className="cart-head-actions">
+                    {lines.length > 0 && <button type="button" className="cart-clear" onClick={clear}>Vaciar</button>}
+                    <button type="button" className="cart-x" onClick={handleClose} aria-label="Cerrar">
+                      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
                     </button>
-                  )}
+                  </div>
                 </div>
-                <button type="button" className="modal-close" onClick={handleClose} aria-label="Cerrar">
-                  <svg className="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                </button>
 
-                <div className="modal-body">
-                  {lines.length === 0 ? (
-                    <p className="empty-note">Tu carrito está vacío. Agrega algo desde el menú.</p>
-                  ) : (
-                    <>
-                      <div className="cart-lines">
-                        {lines.map((l) => (
-                          <div className="cart-line-block" key={l.lineKey}>
-                            <div className="cart-line">
-                              <div className="cart-line-photo">
-                                {l.image_url ? <img src={l.image_url} alt={l.name} /> : null}
+                {lines.length === 0 ? (
+                  <div className="cart-scroll cart-empty">
+                    <span className="cart-empty-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M5 7h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 7Z" /><path d="M9 7V6a3 3 0 0 1 6 0v1" /></svg>
+                    </span>
+                    <h4>Todavía no hay nada aquí</h4>
+                    <p>Lo que agregues desde el menú aparece en este pedido.</p>
+                    <Link href="/menu" className="btn btn-amber" onClick={closeDrawer}>Ver el menú</Link>
+                  </div>
+                ) : (
+                  <>
+                    <div className="cart-scroll">
+                      <ul className="cart-items">
+                        {lines.map((l) => {
+                          const unit = tabFlow ? linePriceFor(l, currencies[0]) : linePriceFor(l, currency);
+                          const fmt = tabFlow ? money : inCurrency;
+                          const noteOpen = noteKey === l.lineKey;
+                          return (
+                            <li key={l.lineKey} className="ci">
+                              <div className={`ci-thumb${l.image_url ? '' : ' is-empty'}`} aria-hidden="true">
+                                {l.image_url ? <img src={l.image_url} alt="" /> : <span>{(l.name || '?').trim().charAt(0)}</span>}
                               </div>
-                              <div className="cart-line-body">
-                                <h4>{l.name}</h4>
-                                {l.options && l.options.length > 0 && (
-                                  <span className="cart-line-options">{describeOptions(l.options)}</span>
-                                )}
-                                <span className="cart-line-price">{inCurrency(linePriceFor(l, currency))}</span>
+                              <div className="ci-main">
+                                <div className="ci-top">
+                                  <h4>{l.name}</h4>
+                                  <b className="ci-price">{fmt(unit * l.qty)}</b>
+                                </div>
+                                {l.options && l.options.length > 0 && <p className="ci-opts">{describeOptions(l.options)}</p>}
+                                {l.qty > 1 && <p className="ci-each">{fmt(unit)} c/u</p>}
+                                {noteOpen ? (
+                                  <input
+                                    className="ci-note-input" type="text" autoFocus maxLength={140}
+                                    placeholder="Ej. sin cebolla, término medio…"
+                                    value={l.notes || ''}
+                                    onChange={(e) => setNotes(l.lineKey, e.target.value)}
+                                    onBlur={() => setNoteKey(null)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') setNoteKey(null); }}
+                                  />
+                                ) : l.notes ? (
+                                  <button type="button" className="ci-note" onClick={() => setNoteKey(l.lineKey)}>“{l.notes}”</button>
+                                ) : null}
+                                <div className="ci-bottom">
+                                  <div className="ci-step">
+                                    <button type="button" onClick={() => setQty(l.lineKey, l.qty - 1)} aria-label={l.qty === 1 ? `Quitar ${l.name}` : 'Uno menos'}>
+                                      {l.qty === 1
+                                        ? <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>
+                                        : <svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg>}
+                                    </button>
+                                    <span aria-live="polite">{l.qty}</span>
+                                    <button type="button" onClick={() => setQty(l.lineKey, l.qty + 1)} aria-label="Uno más">
+                                      <svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" /></svg>
+                                    </button>
+                                  </div>
+                                  {!noteOpen && !l.notes && <button type="button" className="ci-link" onClick={() => setNoteKey(l.lineKey)}>Nota</button>}
+                                  {tabFlow && people.length > 1 && (
+                                    <label className="ci-for">
+                                      <span>Para</span>
+                                      <select value={personOf(l)} onChange={(e) => setPerson(l.lineKey, e.target.value)}>
+                                        {people.map((p) => <option key={p} value={p}>{p}</option>)}
+                                      </select>
+                                    </label>
+                                  )}
+                                </div>
                               </div>
-                              <div className="qty-stepper">
-                                <button type="button" onClick={() => setQty(l.lineKey, l.qty - 1)} aria-label="Menos">–</button>
-                                <span>{l.qty}</span>
-                                <button type="button" onClick={() => setQty(l.lineKey, l.qty + 1)} aria-label="Más">+</button>
-                              </div>
-                              <button type="button" className="cart-line-remove" onClick={() => removeItem(l.lineKey)} aria-label="Quitar">
-                                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                              </button>
-                            </div>
-                            <input
-                              type="text"
-                              className="cart-line-notes"
-                              placeholder="Alguna nota para este producto (ej. sin azúcar)…"
-                              value={l.notes || ''}
-                              onChange={(e) => setNotes(l.lineKey, e.target.value)}
-                            />
-                            {tabFlow && people.length > 1 && (
-                              <div className="ticket-people cart-line-for">
-                                <span>Para</span>
-                                {people.map((p) => <button key={p} type="button" className={personOf(l) === p ? 'on' : ''} onClick={() => setPerson(l.lineKey, p)}>{p}</button>)}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
 
                       {activeTab ? (
-                        <div className="tab-checkout">
-                          <div className="tab-checkout-banner">
+                        <div className="cart-sec">
+                          <div className="cart-tabcard">
                             <div>
                               <b>{activeTab.table_label}</b>
-                              <span>Se suma a tu cuenta abierta: pagas al final.</span>
+                              <span>Se suma a tu cuenta. Pagas al final.</span>
                             </div>
-                            <button type="button" className="tab-code" onClick={shareCode} aria-label="Compartir el código con la mesa">
+                            <button type="button" className="cart-tabcode" onClick={shareCode} aria-label="Compartir el código con la mesa">
                               <small>Código</small>
                               <b>{activeTab.code}</b>
                               <small>Compartir</small>
                             </button>
                           </div>
                           <div className="field">
-                            <label htmlFor="cartNameTab">Tu nombre</label>
-                            <input id="cartNameTab" type="text" placeholder="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                            <label htmlFor="cartName">Tu nombre</label>
+                            <input id="cartName" type="text" placeholder="¿A nombre de quién?" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                           </div>
-                          <div className="field">
-                            <label htmlFor="cartCompanion">En la mesa</label>
-                            <div className="ticket-people tab-people">
-                              {people.map((p) => (
-                                <span key={p} className="tab-person">
-                                  {p}
-                                  {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
-                                </span>
-                              ))}
-                              <input id="cartCompanion" type="text" placeholder="+ Persona" maxLength={30} value={newCompanion}
-                                onChange={(e) => setNewCompanion(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }}
-                                onBlur={addCompanion} />
-                            </div>
-                          </div>
-                          {joinTab && !activeTab && (
-                            <div className="field">
-                              <label htmlFor="cartJoinCode">Código de la cuenta</label>
-                              <p className="tab-join-note">{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
-                              <input id="cartJoinCode" className="mesa-code" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
-                            </div>
-                          )}
-                          <div className="cart-totals">
-                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
-                          </div>
-                          {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing || (joinTab && !activeTab && joinCode.trim().length < 4)}>
-                            {placing ? 'Enviando…' : activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar a la cocina' : 'Abrir cuenta y enviar a la cocina'}
-                          </button>
-                          <Link href="/mi-mesa" className="tab-checkout-link" onClick={closeDrawer}>Ver mi cuenta</Link>
-                        </div>
-                      ) : (<>
-                      <div className="checkout-fields">
-                        <div className="field">
-                          <label htmlFor="cartName">Tu nombre</label>
-                          <input id="cartName" type="text" placeholder="¿A nombre de quién?" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                        </div>
-
-                        <div className="field">
-                          <label>¿Cómo lo quieres?</label>
-                          <div className="order-type-row">
-                            <button
-                              type="button"
-                              className={`order-type-btn${orderType === 'pickup' ? ' active' : ''}`}
-                              onClick={() => setOrderType('pickup')}
-                            >
-                              <svg viewBox="0 0 24 24"><path d="M20 8l-8-5-8 5v8l8 5 8-5z" /><path d="M12 3v18M4 8l8 5 8-5" /></svg>
-                              Pick up
-                            </button>
-                            <button
-                              type="button"
-                              className={`order-type-btn${orderType === 'dine_in' ? ' active' : ''}`}
-                              onClick={() => setOrderType('dine_in')}
-                            >
-                              <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>
-                              Comer aquí
-                            </button>
-                          </div>
-                        </div>
-
-                        {orderType === 'dine_in' && (
-                          <>
-                            <div className="field">
-                              <label htmlFor="cartTable">Tu mesa</label>
-                              <select id="cartTable" value={tableNumber} onChange={(e) => { setTableNumber(e.target.value); setJoinTab(null); setJoinCode(''); }}>
-                                <option value="">Elige tu mesa…</option>
-                                {tables.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
-                              </select>
-                            </div>
-                            <div className="field">
-                              <label htmlFor="cartPartySize">¿Cuántos son en la mesa?</label>
-                              <div className="qty-stepper">
-                                <button type="button" onClick={() => setPartySize((n) => Math.max(1, n - 1))} aria-label="Menos">–</button>
-                                <span>{partySize}</span>
-                                <button type="button" onClick={() => setPartySize((n) => Math.min(20, n + 1))} aria-label="Más">+</button>
-                              </div>
-                            </div>
-                            {realTables && (
-                              <div className="field">
-                                <label>¿Cuándo pagas?</label>
-                                <div className="order-type-row pay-when">
-                                  <button type="button" className={`order-type-btn${payLater ? ' active' : ''}`} onClick={() => setPayLater(true)}>Al final</button>
-                                  <button type="button" className={`order-type-btn${!payLater ? ' active' : ''}`} onClick={() => { setPayLater(false); setJoinTab(null); }}>Ahora</button>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      {branch && (
-                        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Pidiendo en: {branchInfo?.full}</p>
-                      )}
-
-                      {tabFlow ? (
-                        <div className="tab-checkout">
-                          <div className="field">
-                            <label htmlFor="cartCompanion">En la mesa</label>
-                            <div className="ticket-people tab-people">
-                              {people.map((p) => (
-                                <span key={p} className="tab-person">
-                                  {p}
-                                  {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
-                                </span>
-                              ))}
-                              <input id="cartCompanion" type="text" placeholder="+ Persona" maxLength={30} value={newCompanion}
-                                onChange={(e) => setNewCompanion(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }}
-                                onBlur={addCompanion} />
-                            </div>
-                          </div>
-                          {joinTab && !activeTab && (
-                            <div className="field">
-                              <label htmlFor="cartJoinCode">Código de la cuenta</label>
-                              <p className="tab-join-note">{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
-                              <input id="cartJoinCode" className="mesa-code" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
-                            </div>
-                          )}
-                          <div className="cart-totals">
-                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
-                          </div>
-                          {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing || (joinTab && !activeTab && joinCode.trim().length < 4)}>
-                            {placing ? 'Enviando…' : activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar a la cocina' : 'Abrir cuenta y enviar a la cocina'}
-                          </button>
-                        </div>
-                      ) : (<>
-
-                      {appliedPromo ? (
-                        <div className="promo-applied">
-                          <span className="promo-applied-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
-                          </span>
-                          <span className="promo-applied-text">
-                            <b>{appliedPromo.code}</b>
-                            <span>{viewPromo.missingItem ? 'Agrega el producto del código a tu pedido' : promoSummary(appliedPromo, (lines.find((l) => l.id === appliedPromo.item_id) || {}).name)}</span>
-                          </span>
-                          <button type="button" className="promo-applied-remove" onClick={removePromo} aria-label="Quitar código">
-                            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                          </button>
+                          {tablePeople}
                         </div>
                       ) : (
-                        <form className="promo-row" onSubmit={(e) => { e.preventDefault(); applyPromo(); }}>
-                          <input type="text" placeholder="Código promocional" value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
-                          <button type="submit" className="btn btn-ghost btn-sm" disabled={promoBusy || !promo.trim()}>{promoBusy ? '…' : 'Aplicar'}</button>
-                        </form>
+                        <div className="cart-sec">
+                          <div className="field">
+                            <label>¿Cómo lo quieres?</label>
+                            <div className="cart-seg" role="radiogroup" aria-label="Cómo lo quieres">
+                              <button type="button" role="radio" aria-checked={orderType === 'dine_in'} className={orderType === 'dine_in' ? 'on' : ''} onClick={() => setOrderType('dine_in')}>
+                                <svg viewBox="0 0 24 24"><path d="M4 10h16M6 10v9M18 10v9M8 10V6h8v4" /></svg>Comer aquí
+                              </button>
+                              <button type="button" role="radio" aria-checked={orderType === 'pickup'} className={orderType === 'pickup' ? 'on' : ''} onClick={() => setOrderType('pickup')}>
+                                <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg>Para llevar
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor="cartName">Tu nombre</label>
+                            <input id="cartName" type="text" placeholder="¿A nombre de quién?" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                          </div>
+
+                          {orderType === 'dine_in' && (
+                            <>
+                              <div className="cart-pair">
+                                <div className="field">
+                                  <label htmlFor="cartTable">Mesa</label>
+                                  <select id="cartTable" value={tableNumber} onChange={(e) => { setTableNumber(e.target.value); setJoinTab(null); setJoinCode(''); }}>
+                                    <option value="">Elige…</option>
+                                    {tables.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
+                                  </select>
+                                </div>
+                                <div className="field">
+                                  <label>Personas</label>
+                                  <div className="ci-step is-field">
+                                    <button type="button" onClick={() => setPartySize((n) => Math.max(1, n - 1))} aria-label="Menos"><svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg></button>
+                                    <span>{partySize}</span>
+                                    <button type="button" onClick={() => setPartySize((n) => Math.min(20, n + 1))} aria-label="Más"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" /></svg></button>
+                                  </div>
+                                </div>
+                              </div>
+                              {realTables && (
+                                <div className="field">
+                                  <label>¿Cuándo pagas?</label>
+                                  <div className="cart-seg" role="radiogroup" aria-label="Cuándo pagas">
+                                    <button type="button" role="radio" aria-checked={payLater} className={payLater ? 'on' : ''} onClick={() => setPayLater(true)}>Al final</button>
+                                    <button type="button" role="radio" aria-checked={!payLater} className={!payLater ? 'on' : ''} onClick={() => { setPayLater(false); setJoinTab(null); }}>Ahora</button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {tabFlow ? (
+                            <>
+                              {tablePeople}
+                              {joinTab && (
+                                <div className="field">
+                                  <label htmlFor="cartJoinCode">Código de la cuenta</label>
+                                  <p className="cart-hint">{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
+                                  <input id="cartJoinCode" className="cart-code-input" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="field">
+                                <label>¿Cómo pagas?</label>
+                                <div className="cart-pay" role="radiogroup" aria-label="Cómo pagas">
+                                  {PAYMENT_METHODS.map((m) => (
+                                    <button key={m.id} type="button" role="radio" aria-checked={payMethod === m.id} className={payMethod === m.id ? 'on' : ''} onClick={() => setPayMethod(m.id)}>
+                                      <span>{m.label}</span>
+                                      {m.id === 'gift_card' && profile && <small>{money(balance)}</small>}
+                                    </button>
+                                  ))}
+                                </div>
+                                <p className="cart-hint">{payMethod === 'gift_card' ? 'Se descuenta de tu balance al confirmar.' : 'Se cobra en el local. Aquí solo nos avisas.'}</p>
+                              </div>
+
+                              <CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" />
+
+                              {appliedPromo ? (
+                                <div className="promo-applied">
+                                  <span className="promo-applied-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
+                                  </span>
+                                  <span className="promo-applied-text">
+                                    <b>{appliedPromo.code}</b>
+                                    <span>{viewPromo.missingItem ? 'Agrega el producto del código a tu pedido' : promoSummary(appliedPromo, (lines.find((l) => l.id === appliedPromo.item_id) || {}).name)}</span>
+                                  </span>
+                                  <button type="button" className="promo-applied-remove" onClick={removePromo} aria-label="Quitar código">
+                                    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                                  </button>
+                                </div>
+                              ) : showPromo ? (
+                                <form className="promo-row" onSubmit={(e) => { e.preventDefault(); applyPromo(); }}>
+                                  <input type="text" autoFocus placeholder="Código promocional" value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
+                                  <button type="submit" className="btn btn-ghost btn-sm" disabled={promoBusy || !promo.trim()}>{promoBusy ? '…' : 'Aplicar'}</button>
+                                </form>
+                              ) : (
+                                <button type="button" className="ci-link cart-promo-link" onClick={() => setShowPromo(true)}>¿Tienes un código promocional?</button>
+                              )}
+                              {promoMsg && <p className="promo-msg">{promoMsg}</p>}
+                            </>
+                          )}
+                        </div>
                       )}
-                      {promoMsg && <p className="promo-msg">{promoMsg}</p>}
+                    </div>
 
-                      <CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" />
-
-                      <div className="cart-totals">
-                        <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
-                        {viewPromo.amount > 0 && <div className="cart-discount"><span>Código {appliedPromo.code}</span><span>−{inCurrency(viewPromo.amount)}</span></div>}
-                        {taxCharges.map((c, i) => (
-                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((taxBase * (Number(c.percent) || 0)) / 100))}</span></div>
-                        ))}
-                        <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
-                        <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
-                        {!currency.base && (
-                          <div className="cart-total-base"><span>1 {currency.symbol} = {money(currency.rate)}{currency.source === 'Banreservas' ? ' · tasa Banreservas de hoy' : ' · tasa de hoy'}</span><span>Equivale a {money(total)}</span></div>
-                        )}
-                      </div>
-
-                      {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-
-                      <p className="pay-label">
-                        Elige cómo pagar
-                        {profile && <span className="muted" style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}> · tu balance de gift card: {money(profile.gift_card_balance || 0)}</span>}
-                      </p>
-                      <div className="pay-grid">
-                        {PAYMENT_METHODS.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className={`pay-btn${m.ready ? ' ready' : ''}`}
-                            disabled={placing}
-                            onClick={() => handlePay(m.id)}
-                          >
-                            {m.label}
-                            {!m.ready && <span className="pay-soon">Próximamente</span>}
+                    <div className="cart-foot">
+                      {!tabFlow && showBreakdown && (
+                        <div className="cart-break">
+                          <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
+                          {viewPromo.amount > 0 && <div className="is-discount"><span>Código {appliedPromo.code}</span><span>−{inCurrency(viewPromo.amount)}</span></div>}
+                          {taxCharges.map((c, i) => (
+                            <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((taxBase * (Number(c.percent) || 0)) / 100))}</span></div>
+                          ))}
+                          {!currency.base && <div><span>1 {currency.symbol} = {money(currency.rate)}</span><span>Equivale a {money(total)}</span></div>}
+                        </div>
+                      )}
+                      <div className="cart-sum">
+                        {tabFlow ? (
+                          <span className="cart-sum-label">Este pedido<small>Impuestos al cerrar la cuenta</small></span>
+                        ) : (
+                          <button type="button" className="cart-sum-label is-btn" onClick={() => setShowBreakdown((v) => !v)} aria-expanded={showBreakdown}>
+                            Total<small>{showBreakdown ? 'Ocultar detalle' : `Incluye ${taxCharges.map((c) => c.label).join(' y ') || 'impuestos'}`}</small>
                           </button>
-                        ))}
+                        )}
+                        <b className="cart-sum-total">{ctaAmount}</b>
                       </div>
-                      <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-                        Efectivo y tarjeta se cobran en persona en el local — solo estás avisando cómo vas a pagar.
-                        {!currency.base && ` La gift card se descuenta en ${currencies[0].symbol}.`}
-                      </p>
-                      </>)}
-                      </>)}
-                    </>
-                  )}
-                </div>
+                      {placeError && <div className="form-msg show error">{placeError}</div>}
+                      <button
+                        type="button" className="cart-cta"
+                        onClick={() => (tabFlow ? handleSendToTab() : handlePay(payMethod))}
+                        disabled={placing || (tabFlow && joinTab && !activeTab && joinCode.trim().length < 4)}
+                      >
+                        <span>{placing ? 'Enviando…' : ctaLabel}</span>
+                        {!placing && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
+                      </button>
+                      {activeTab && <Link href="/mi-mesa" className="cart-foot-link" onClick={closeDrawer}>Ver mi cuenta</Link>}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </motion.div>
