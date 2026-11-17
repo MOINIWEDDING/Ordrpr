@@ -16,7 +16,8 @@ export function demoMenu() {
 
 export { formatMoney as money } from '@/lib/settingsDefaults';
 
-export function useMenuItems() {
+// hideUnavailable: los clientes no ven los productos agotados (el dueño sí, marcados como agotados).
+export function useMenuItems({ hideUnavailable = false } = {}) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,5 +34,5 @@ export function useMenuItems() {
 
   useEffect(() => { load(); }, [load]);
 
-  return { items, loading, reload: load };
+  return { items: hideUnavailable ? items.filter((it) => it.available !== false) : items, allItems: items, loading, reload: load };
 }

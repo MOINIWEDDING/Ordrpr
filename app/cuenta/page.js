@@ -17,11 +17,11 @@ import BranchSwitcher from '@/components/BranchSwitcher';
 import { Chevron, ownerSections } from '@/components/OwnerSections';
 
 export default function CuentaPage() {
-  const { profile, isStaff, isComensal, logout } = useAuth();
+  const { profile, isStaff, canManageOrders, userRole, logout } = useAuth();
 
   if (!profile) return <AuthGate />;
   if (isStaff) return <StaffView profile={profile} logout={logout} />;
-  if (isComensal) return <ComensalView profile={profile} logout={logout} />;
+  if (canManageOrders) return <TeamView profile={profile} role={userRole} logout={logout} />;
   return <ClientView profile={profile} logout={logout} />;
 }
 
@@ -48,22 +48,46 @@ function LogoutButton({ logout }) {
   return <button type="button" className="btn btn-ghost btn-block acct-logout" onClick={logout}>Cerrar sesión</button>;
 }
 
-function ComensalView({ profile, logout }) {
+// Cajero, camarero, cocina y comensal: solo los accesos a sus pantallas.
+const TEAM_ROLES = {
+  cajero: { label: 'Cajero', links: [
+    { href: '/caja', title: 'Caja', sub: 'Mesas, cuentas abiertas, cobros y facturas.' },
+    { href: '/ordenes', title: 'Órdenes', sub: 'Los pedidos de la web y de las mesas.' },
+    { href: '/cocina', title: 'Cocina', sub: 'Las comandas en preparación.' },
+  ] },
+  camarero: { label: 'Camarero', links: [
+    { href: '/camarero', title: 'Mis mesas', sub: 'Toma pedidos y envíalos a la cocina.' },
+    { href: '/cocina', title: 'Cocina', sub: 'Qué está listo para servir.' },
+  ] },
+  cocina: { label: 'Cocina', links: [
+    { href: '/cocina', title: 'Comandas', sub: 'Los pedidos por preparar, por estación.' },
+    { href: '/ordenes', title: 'Órdenes', sub: 'Todos los pedidos de la sucursal.' },
+  ] },
+  comensal: { label: 'Comensal', links: [
+    { href: '/ordenes', title: 'Órdenes', sub: 'Ve y actualiza los pedidos de la sucursal que tengas activa.' },
+    { href: '/caja', title: 'Caja', sub: 'Mesas, cuentas abiertas y cobros.' },
+  ] },
+};
+
+function TeamView({ profile, role, logout }) {
+  const info = TEAM_ROLES[role] || TEAM_ROLES.comensal;
   return (
     <section className="cuenta-page">
       <div className="wrap">
-        <AccountHeader profile={profile} role="Comensal" />
-
-        <Reveal delay={0.05} style={{ marginTop: 20 }}>
-          <Link href="/ordenes" className="acct-cta">
-            <span>
-              <b>Ir a Órdenes</b>
-              <small>Ve y actualiza los pedidos de la sucursal que tengas activa. Es la única sección de tu cuenta.</small>
-            </span>
-            <Chevron />
-          </Link>
-        </Reveal>
-
+        <AccountHeader profile={profile} role={info.label} />
+        <div className="acct-team-links">
+          {info.links.map((l, i) => (
+            <Reveal key={l.href} delay={0.05 * (i + 1)}>
+              <Link href={l.href} className="acct-cta">
+                <span>
+                  <b>{l.title}</b>
+                  <small>{l.sub}</small>
+                </span>
+                <Chevron />
+              </Link>
+            </Reveal>
+          ))}
+        </div>
         <LogoutButton logout={logout} />
       </div>
     </section>

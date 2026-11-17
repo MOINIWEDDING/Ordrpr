@@ -2,17 +2,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 
-const ROLE_LABEL = { staff: 'Dueño', comensal: 'Comensal' };
+const ROLE_LABEL = { staff: 'Dueño', cajero: 'Cajero', camarero: 'Camarero', cocina: 'Cocina', comensal: 'Comensal' };
 const ROLE_HELP = {
-  staff: 'Dueño: acceso total (menú, configuración, equipo, estadísticas y órdenes).',
-  comensal: 'Comensal: solo ve y atiende las Órdenes.',
+  staff: 'Dueño: acceso total (menú, configuración, equipo, estadísticas, caja y órdenes).',
+  cajero: 'Cajero: caja, cuentas de las mesas, cobros, facturas y órdenes.',
+  camarero: 'Camarero: sus mesas y la carta para tomar pedidos y enviarlos a la cocina.',
+  cocina: 'Cocina: la pantalla de comandas para preparar los pedidos.',
+  comensal: 'Comensal: ve y atiende las Órdenes.',
 };
+const ROLE_ORDER = ['cajero', 'camarero', 'cocina', 'comensal', 'staff'];
+
+function Stars({ value }) {
+  const full = Math.round(value);
+  return <span className="team-stars" aria-label={`${value.toFixed(1)} de 5`}>{'★'.repeat(full)}<i>{'★'.repeat(5 - full)}</i></span>;
+}
 
 export default function TeamManager() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('comensal');
+  const [role, setRole] = useState('camarero');
+  const [ratings, setRatings] = useState({}); // waiter_id -> { avg, count, last }
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null); // { type: 'ok' | 'error', text }
 
@@ -21,6 +31,15 @@ export default function TeamManager() {
     const { data, error } = await sb.rpc('team_list');
     if (error) setMsg({ type: 'error', text: error.message });
     else setRows(data || []);
+    // estrellas que dan los clientes al cerrar su cuenta
+    const { data: rs } = await sb.from('waiter_ratings').select('waiter_id, stars, comment, created_at').order('created_at', { ascending: false });
+    const acc = {};
+    (rs || []).forEach((r) => {
+      const a = acc[r.waiter_id] || (acc[r.waiter_id] = { sum: 0, count: 0, last: r.comment ? r : null });
+      a.sum += r.stars; a.count += 1;
+      if (!a.last && r.comment) a.last = r;
+    });
+    setRatings(Object.fromEntries(Object.entries(acc).map(([k, a]) => [k, { avg: a.sum / a.count, count: a.count, last: a.last }])));
     setLoading(false);
   }, []);
 
@@ -51,9 +70,9 @@ export default function TeamManager() {
     if (res) setEmail('');
   }
 
-  const changeRole = (r) => run(
-    () => sb.rpc('team_set_role', { p_user: r.user_id, p_role: r.role === 'staff' ? 'comensal' : 'staff' }),
-    'Rol actualizado.',
+  const changeRole = (r, next) => run(
+    () => sb.rpc('team_set_role', { p_user: r.user_id, p_role: next }),
+    `${r.name || r.email} ahora es ${ROLE_LABEL[next]}.`,
   );
 
   function removeMember(r) {
@@ -83,6 +102,14 @@ export default function TeamManager() {
                 <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>
                   {r.pending ? 'Aún no se ha registrado' : r.name ? r.email : ''}
                 </span>
+                {!r.pending && ratings[r.user_id] && (
+                  <span className="team-rating">
+                    <Stars value={ratings[r.user_id].avg} />
+                    <b>{ratings[r.user_id].avg.toFixed(1)}</b>
+                    <small>{ratings[r.user_id].count} {ratings[r.user_id].count === 1 ? 'calificación' : 'calificaciones'}</small>
+                    {ratings[r.user_id].last && <q>{ratings[r.user_id].last.comment}</q>}
+                  </span>
+                )}
               </div>
               {!r.is_me && (
                 <div className="branch-actions">
@@ -90,9 +117,9 @@ export default function TeamManager() {
                     <button type="button" disabled={busy} onClick={() => cancelInvite(r)}>Cancelar invitación</button>
                   ) : (
                     <>
-                      <button type="button" disabled={busy} onClick={() => changeRole(r)}>
-                        {r.role === 'staff' ? 'Pasar a comensal' : 'Hacer dueño'}
-                      </button>
+                      <select className="team-role-select" value={r.role} disabled={busy} onChange={(e) => changeRole(r, e.target.value)} aria-label={`Rol de ${r.name || r.email}`}>
+                        {ROLE_ORDER.map((k) => <option key={k} value={k}>{ROLE_LABEL[k]}</option>)}
+                      </select>
                       <button type="button" disabled={busy} onClick={() => removeMember(r)}>Quitar</button>
                     </>
                   )}
@@ -112,8 +139,7 @@ export default function TeamManager() {
         <div className="field">
           <label htmlFor="teamRole">Rol</label>
           <select id="teamRole" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="comensal">Comensal (solo Órdenes)</option>
-            <option value="staff">Dueño (acceso total)</option>
+            {ROLE_ORDER.map((k) => <option key={k} value={k}>{ROLE_LABEL[k]}</option>)}
           </select>
           <span className="muted" style={{ display: 'block', fontSize: 12.5, marginTop: 6 }}>{ROLE_HELP[role]}</span>
         </div>

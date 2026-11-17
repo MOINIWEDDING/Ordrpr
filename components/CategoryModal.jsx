@@ -18,6 +18,7 @@ export default function CategoryModal({ category, onClose, onSaved }) {
   const [icon, setIcon] = useState(category ? category.icon : 'smoker');
   const [tint, setTint] = useState(category ? category.tint : 'manana');
   const [onHome, setOnHome] = useState(category ? !category.home_hidden : true);
+  const [station, setStation] = useState(category ? (category.station || 'cocina') : 'cocina');
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -26,7 +27,7 @@ export default function CategoryModal({ category, onClose, onSaved }) {
     e.preventDefault();
     if (!name.trim()) { setMsg({ text: 'Escribe un nombre.', type: 'error' }); return; }
     if (!BARRO_CONFIGURED) { setMsg({ text: 'Conecta Supabase para guardar cambios de verdad.', type: 'error' }); return; }
-    const payload = { name: name.trim(), icon, tint, home_hidden: !onHome };
+    const payload = { name: name.trim(), icon, tint, home_hidden: !onHome, station };
     setSaving(true);
     const save = async (data) => {
       if (category) return sb.from('categories').update(data).eq('id', category.id);
@@ -35,10 +36,13 @@ export default function CategoryModal({ category, onClose, onSaved }) {
     };
     let { error } = await save(payload);
     // si la base de datos aún no tiene la columna home_hidden (falta su migración), se guarda lo demás
-    if (error && /home_hidden/i.test(error.message || '')) {
-      const rest = { ...payload };
-      delete rest.home_hidden;
-      ({ error } = await save(rest));
+    let rest = payload;
+    for (const col of ['home_hidden', 'station']) {
+      if (error && new RegExp(col, 'i').test(error.message || '')) {
+        rest = { ...rest };
+        delete rest[col];
+        ({ error } = await save(rest));
+      }
     }
     setSaving(false);
     if (error) { setMsg({ text: error.message, type: 'error' }); return; }
@@ -91,6 +95,14 @@ export default function CategoryModal({ category, onClose, onSaved }) {
                   <span style={{ background: `var(--tint-${t.key})`, borderColor: `var(--tint-${t.key}-deep)` }} />
                   {t.label}
                 </button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label>Sus productos se preparan en</label>
+            <div className="seg-buttons seg-buttons-sm" role="group" aria-label="Estación">
+              {[['cocina', 'Cocina'], ['bar', 'Bar']].map(([k, label]) => (
+                <button key={k} type="button" className={station === k ? 'active' : ''} aria-pressed={station === k} onClick={() => setStation(k)}>{label}</button>
               ))}
             </div>
           </div>

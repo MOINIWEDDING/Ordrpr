@@ -13,6 +13,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { sendOrderPush, orderPushNotice } from '@/lib/push';
 import { notifyWallet } from '@/lib/loyalty';
+import { openInvoiceForOrder } from '@/lib/invoices';
+import { PAY_LABEL } from '@/lib/pos';
 
 const STATUS_LABELS = {
   nueva: 'Nueva',
@@ -21,12 +23,7 @@ const STATUS_LABELS = {
   entregada: 'Entregada',
 };
 const STATUS_ORDER = ['nueva', 'en_preparacion', 'lista', 'entregada'];
-const PAY_LABELS = {
-  efectivo: 'Efectivo',
-  tarjeta: 'Tarjeta',
-  gift_card: 'Tarjeta de regalo',
-  dividido: 'Dividida entre varios',
-};
+const PAY_LABELS = { ...PAY_LABEL, gift_card: 'Tarjeta de regalo', dividido: 'Dividida entre varios' };
 
 function timeAgo(dateStr) {
   const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
@@ -38,19 +35,19 @@ function timeAgo(dateStr) {
 }
 
 export default function OrdenesPage() {
-  const { profile, isStaff, isComensal } = useAuth();
+  const { profile, isStaff, canManageOrders } = useAuth();
   const { markSeen } = useOrdersNotify();
   const { branchInfo } = useBranch();
   const router = useRouter();
   const [tab, setTab] = useState('pedidos'); // 'pedidos' | 'giftcards'
 
   useEffect(() => {
-    if (profile && !isStaff && !isComensal) router.push('/');
-  }, [profile, isStaff, isComensal, router]);
+    if (profile && !canManageOrders) router.push('/');
+  }, [profile, canManageOrders, router]);
 
   useEffect(() => { markSeen(); }, [markSeen]);
 
-  if (!profile || (!isStaff && !isComensal)) return null;
+  if (!profile || !canManageOrders) return null;
 
   return (
     <section className="ordenes-page">
@@ -73,6 +70,7 @@ export default function OrdenesPage() {
 }
 
 function OrdersList() {
+  const router = useRouter();
   const { branch } = useBranch();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
@@ -187,6 +185,7 @@ function OrdersList() {
 
           <div className="order-card-bottom">
             <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}{order.payment_currency ? ` · ${formatIn(order.payment_currency.total, order.payment_currency)}` : ''}</span>
+            <button type="button" className="order-invoice-btn" onClick={async () => { const note = await openInvoiceForOrder(order.id, router); if (note) showToast(note); }}>Factura</button>
             <select
               className="order-status"
               value={order.status}

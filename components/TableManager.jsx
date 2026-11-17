@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useBranch } from '@/context/BranchContext';
 import { useTables } from '@/hooks/useTables';
+import TableQrSheet from './TableQrSheet';
 
 export default function TableManager() {
   const { branch, branches } = useBranch();
@@ -11,6 +12,7 @@ export default function TableManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [showQr, setShowQr] = useState(false);
 
   const branchName = branches.find((b) => b.id === branch)?.full;
 
@@ -75,6 +77,10 @@ export default function TableManager() {
         <button type="submit" className="btn btn-amber btn-sm" disabled={busy}>{busy ? 'Agregando…' : 'Agregar mesa'}</button>
       </form>
       {error && <div className="form-msg show error" style={{ marginTop: 10 }}>{error}</div>}
+      {tables.length > 0 && BARRO_CONFIGURED && (
+        <button type="button" className="pill-btn-dark" style={{ marginTop: 14 }} onClick={() => setShowQr(true)}>Códigos QR de las mesas</button>
+      )}
+      {showQr && <TableQrSheet tables={tables} onClose={() => setShowQr(false)} />}
     </div>
   );
 }

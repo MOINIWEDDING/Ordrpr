@@ -24,6 +24,9 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
   const [featured, setFeatured] = useState(item ? !!item.featured : false);
   const [isBeverage, setIsBeverage] = useState(item ? !!item.is_beverage : false);
   const [onHome, setOnHome] = useState(item ? !item.home_hidden : true);
+  const [ingredients, setIngredients] = useState(item ? (item.ingredients || '') : '');
+  const [station, setStation] = useState(item ? (item.station || '') : '');
+  const [available, setAvailable] = useState(item ? item.available !== false : true);
   // acompañantes y extras; los precios se editan como texto y se convierten al guardar
   const [optionGroups, setOptionGroups] = useState(() => normalizeGroups(item && item.options).map((g) => ({
     ...g, choices: g.choices.map((c) => ({ label: c.label, price: c.price ? String(c.price) : '' })),
@@ -85,6 +88,7 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
     const payload = {
       name: name.trim(), price: priceNum, cost: costNum || 0, category, image_url: uploader.url,
       tags: allTags.join(', '), description: description.trim(), featured, is_beverage: isBeverage, currency_prices: prices, home_hidden: !onHome, options: cleanOptions,
+      ingredients: ingredients.trim(), station: station || null, available,
     };
     if (item) payload.updated_at = new Date().toISOString();
     setSaving(true);
@@ -92,7 +96,7 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
     let { error } = await save(payload);
     // si la base de datos aún no tiene alguna columna nueva (falta su migración), se guarda lo demás
     let sent = payload;
-    for (const col of ['currency_prices', 'home_hidden']) {
+    for (const col of ['currency_prices', 'home_hidden', 'ingredients', 'station', 'available']) {
       if (error && new RegExp(col, 'i').test(error.message || '')) {
         sent = { ...sent };
         delete sent[col];
@@ -227,6 +231,18 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
             <textarea id="pDesc" placeholder="Ingredientes, tamaño, notas…" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="field">
+            <label htmlFor="pIngredients">Ingredientes</label>
+            <textarea id="pIngredients" rows={2} placeholder="Res, cebolla caramelizada, queso cheddar, pan brioche" value={ingredients} onChange={(e) => setIngredients(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Se prepara en</label>
+            <div className="seg-buttons seg-buttons-sm" role="group" aria-label="Estación">
+              {[['', 'Según su categoría'], ['cocina', 'Cocina'], ['bar', 'Bar']].map(([k, label]) => (
+                <button key={k || 'cat'} type="button" className={station === k ? 'active' : ''} aria-pressed={station === k} onClick={() => setStation(k)}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
             <label htmlFor="pTags">Etiquetas</label>
             <div className="pe-tags" onClick={() => document.getElementById('pTags')?.focus()}>
               {tags.map((t) => (
@@ -250,6 +266,7 @@ export default function ProductModal({ item, defaultCategory, categories, onClos
             </div>
           </div>
           <div className="pe-toggles">
+            <Toggle id="pAvailable" checked={available} onChange={setAvailable} title="Disponible" sub={available ? undefined : 'Agotado: no se puede pedir'} icon={<path d="M5 12.5l4.5 4.5L19 7.5" />} />
             <Toggle id="pOnHome" checked={onHome} onChange={setOnHome} title="Mostrar en el inicio" icon={<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" />} />
             <Toggle id="pFeatured" checked={featured} onChange={setFeatured} title="Destacado" icon={<path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4 7.2 18.9l.9-5.4-3.9-3.8 5.4-.8z" />} />
             <Toggle id="pBeverage" checked={isBeverage} onChange={setIsBeverage} title="Es una bebida" sub="Cuenta para el Early Bird" icon={<path d="M7 4h10l-1.2 15a1 1 0 0 1-1 .9H9.2a1 1 0 0 1-1-.9zM6.5 8h11" />} />

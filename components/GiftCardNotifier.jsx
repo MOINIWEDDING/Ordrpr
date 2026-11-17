@@ -8,12 +8,12 @@ import { money } from '@/hooks/useMenuItems';
 import { useSettings } from '@/context/SettingsContext';
 
 export default function GiftCardNotifier() {
-  const { isStaff, isComensal } = useAuth();
+  const { isStaff, isComensal, isCashier } = useAuth();
   const { showToast } = useToast();
   const { settings } = useSettings();
 
   useEffect(() => {
-    if ((!isStaff && !isComensal) || !BARRO_CONFIGURED) return undefined;
+    if ((!isStaff && !isComensal && !isCashier) || !BARRO_CONFIGURED) return undefined;
 
     const channel = sb
       .channel('gift-cards-realtime')
@@ -37,7 +37,7 @@ export default function GiftCardNotifier() {
       .subscribe();
 
     return () => { sb.removeChannel(channel); };
-  }, [isStaff, isComensal, showToast, settings.brand_name]);
+  }, [isStaff, isComensal, isCashier, showToast, settings.brand_name]);
 
   return null;
 }
