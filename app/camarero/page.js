@@ -15,6 +15,7 @@ import { ORDER_STATUS, tabTotals, minutesSince, useLiveReload, beep } from '@/li
 import { sendToPrinters } from '@/lib/print/send';
 import ProductPicker, { TicketDraft, addLine, ordersFromLines } from '@/components/ProductPicker';
 import Modal from '@/components/Modal';
+import StaffPayments from '@/components/TabPayments';
 
 // El camarero: sus mesas, lo que está listo para servir y la carta con fotos grandes, precio e
 // ingredientes para tomar pedidos por persona y mandarlos a la cocina.
@@ -30,6 +31,8 @@ export default function CamareroPage() {
   const { charges, totalPercent } = useTaxSettings(branch);
   const [tabs, setTabs] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [pendingPays, setPendingPays] = useState([]);
+  const paysSeen = useRef(0);
   const [error, setError] = useState('');
   const [openTableId, setOpenTableId] = useState(null);
   const [onlyMine, setOnlyMine] = useState(false);
@@ -47,9 +50,11 @@ export default function CamareroPage() {
     setTabs(t || []);
     const ids = (t || []).map((x) => x.id);
     if (ids.length) {
-      const { data: o } = await sb.from('orders').select('id, tab_id, customer_name, items, subtotal, tax_amount, status, created_at, table_number').in('tab_id', ids).order('created_at');
+      const { data: o } = await sb.from('orders').select('id, tab_id, customer_name, items, subtotal, tax_amount, status, created_at, table_number, tab_payment_id').in('tab_id', ids).order('created_at');
       setOrders(o || []);
-    } else setOrders([]);
+      const { data: pp } = await sb.from('tab_payments').select('id, tab_id').eq('status', 'pending').in('tab_id', ids);
+      setPendingPays(pp || []);
+    } else { setOrders([]); setPendingPays([]); }
   }, [branch]);
   useEffect(() => { load(); }, [load]);
   useLiveReload(['tabs', 'orders'], load, 12000);
@@ -58,11 +63,13 @@ export default function CamareroPage() {
   const myTabIds = new Set(tabs.filter((t) => t.waiter_id === me).map((t) => t.id));
   const ready = orders.filter((o) => o.status === 'lista' && (!onlyMine || myTabIds.has(o.tab_id)));
   useEffect(() => { if (ready.length > readySeen.current) beep(); readySeen.current = ready.length; }, [ready.length]);
+  // alguien quiere pagar su parte: el camarero va a cobrarle
+  useEffect(() => { if (pendingPays.length > paysSeen.current) beep(); paysSeen.current = pendingPays.length; }, [pendingPays.length]);
 
   const tabByTable = useMemo(() => Object.fromEntries(tabs.filter((t) => t.table_id).map((t) => [t.table_id, t])), [tabs]);
   const ordersByTab = useMemo(() => {
     const m = {};
-    orders.forEach((o) => { (m[o.tab_id] = m[o.tab_id] || []).push(o); });
+    orders.filter((o) => !o.tab_payment_id).forEach((o) => { (m[o.tab_id] = m[o.tab_id] || []).push(o); });
     return m;
   }, [orders]);
 
@@ -121,6 +128,7 @@ export default function CamareroPage() {
                     <span className="pos-table-meta">{tab.guests} pers. · {minutesSince(tab.created_at)} min</span>
                     {tab.call_waiter_at && <span className="pos-table-flag">Llama</span>}
                     {tab.status === 'bill' && <span className="pos-table-flag">Pide la cuenta</span>}
+                    {pendingPays.some((p) => p.tab_id === tab.id) && <span className="pos-table-flag">Quiere pagar</span>}
                   </>
                 ) : <span className="pos-table-meta">Libre</span>}
               </button>
@@ -156,7 +164,7 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
     setDetail(data || null);
     if (data && !person) setPerson((data.orders[0] && data.orders[0].customer_name) || data.opened_name || '');
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadDetail(); }, [loadDetail]);
+  useEffect(() => { loadDetail(); }, [loadDetail, tab && tab.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function open() {
     setBusy(true);
@@ -190,7 +198,7 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
   }
 
   const people = detail ? [...new Set(detail.orders.map((o) => o.customer_name).filter(Boolean))] : [];
-  const t = detail ? tabTotals(detail.orders, charges) : null;
+  const t = detail ? tabTotals(detail.orders.filter((o) => !o.paid), charges) : null;
 
   return (
     <Modal onClose={onClose} wide>
@@ -224,6 +232,7 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
                 {detail.status === 'bill' && <button type="button" onClick={printBill}>Imprimir prefactura</button>}
               </div>
             )}
+            <StaffPayments tab={detail} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
             <button type="button" className="waiter-summary" onClick={() => setShowOrders((v) => !v)}>
               <span>{detail.orders.length} {detail.orders.length === 1 ? 'pedido' : 'pedidos'} · {money(t.total)}</span>
               <span>{showOrders ? 'Ocultar' : 'Ver lo pedido'}</span>
@@ -233,8 +242,8 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
                 {detail.orders.map((o) => {
                   const st = ORDER_STATUS[o.status] || ORDER_STATUS.nueva;
                   return (
-                    <div key={o.id} className="pos-order">
-                      <div className="pos-order-top"><b>{o.customer_name}</b><span className={`pos-chip is-${st.tone}`}>{st.label}</span><small>{minutesSince(o.created_at)} min</small></div>
+                    <div key={o.id} className={`pos-order${o.paid ? ' is-paid' : ''}`}>
+                      <div className="pos-order-top"><b>{o.customer_name}</b>{o.paid ? <span className="pos-chip is-paid">Pagado</span> : <span className={`pos-chip is-${st.tone}`}>{st.label}</span>}<small>{minutesSince(o.created_at)} min</small></div>
                       {o.items.map((it, i) => <div key={i} className="pos-order-line"><span>{it.qty}× {it.name}{it.options && it.options.length ? <small>{describeOptions(it.options)}</small> : null}</span></div>)}
                     </div>
                   );

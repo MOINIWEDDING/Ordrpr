@@ -2164,3 +2164,44 @@ body.kds-mode #siteHeader .links a.current{color:#fff;}
 .table-orphan small{font-size:11.5px; color:var(--ink-soft);}
 .table-orphan select{border:1px solid var(--line); border-radius:100px; padding:6px 10px; font-family:inherit; font-size:12.5px; font-weight:700; background:#fff;}
 .qr-code{font-size:10px; color:var(--ink-soft);}
+
+/* ---------- Pagar cada quien su parte ---------- */
+.pos-chip.is-paid{background:#E1EADD; color:var(--ok);}
+.pos-order.is-paid, .mimesa-order.is-paid{opacity:.62;}
+.staff-pays{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+.staff-pay{padding:12px 14px; border-radius:14px;}
+.staff-pay.is-pending{background:#E1EADD; color:var(--ink);}
+.staff-pay small{display:block; margin-top:6px; font-size:12px; color:var(--ink-soft);}
+.staff-pay-top{display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:14px;}
+.staff-pay-top > b{font-size:16px; font-variant-numeric:tabular-nums;}
+.staff-pay-actions{display:grid; grid-template-columns:1fr auto auto; gap:8px; margin-top:10px;}
+.staff-pay-actions select{min-width:0; border:1px solid var(--line); border-radius:12px; padding:9px 10px; font-family:inherit; font-size:13.5px; font-weight:700; background:#fff;}
+.staff-pay-ok{border:none; border-radius:100px; padding:9px 18px; background:var(--ok); color:#fff; font-family:inherit; font-weight:800; font-size:13.5px; cursor:pointer;}
+.staff-pay-x{width:38px; border:none; border-radius:50%; background:rgba(255,255,255,.7); font-size:18px; cursor:pointer;}
+.staff-pay.is-paid{background:#fff; border:1px solid var(--line); display:flex; flex-direction:column; gap:6px;}
+.staff-pay-row{display:flex; justify-content:space-between; gap:10px; font-size:13.5px;}
+.staff-pay-row > span:last-child{display:flex; gap:10px; font-weight:700; font-variant-numeric:tabular-nums;}
+.staff-pay-row a{color:var(--amber-deep); text-decoration:underline; text-underline-offset:3px;}
+.mimesa-pays{display:flex; flex-direction:column; gap:8px; margin-top:16px;}
+.mimesa-pay{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:16px; font-size:14px;}
+.mimesa-pay > div{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.mimesa-pay span{font-size:13px; color:var(--ink-soft);}
+.mimesa-pay.is-pending{background:#E1EADD;}
+.mimesa-pay.is-paid{background:#fff; border:1px solid var(--line);}
+.mimesa-pay button{flex-shrink:0; border:none; border-radius:100px; padding:7px 12px; background:#fff; font-family:inherit; font-weight:800; font-size:12.5px; cursor:pointer;}
+.mimesa-pay a{flex-shrink:0; font-weight:800; font-size:13px; color:var(--amber-deep);}
+.mimesa-paybtn{margin-top:10px;}
+.mimesa-invoices{display:flex; flex-direction:column; gap:8px; width:100%; max-width:320px;}
+.paypart{display:flex; flex-direction:column; gap:14px;}
+.paypart-lines{display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:#fff; border:1px solid var(--line); border-radius:16px; font-size:14px;}
+.paypart-lines > div{display:flex; justify-content:space-between; gap:10px; font-variant-numeric:tabular-nums;}
+.paypart-sub{color:var(--ink-soft); font-size:13px;}
+.paypart-sub:first-of-type{margin-top:4px; padding-top:8px; border-top:1px dashed var(--line);}
+.paypart-total{margin-top:4px; padding-top:8px; border-top:1px solid var(--line); font-size:17px; font-weight:800;}
+.paypart-methods{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.paypart-methods button{display:flex; flex-direction:column; align-items:center; gap:2px; padding:12px; border:1.5px solid var(--line); border-radius:14px; background:#fff; font-family:inherit; font-size:14px; font-weight:800; color:var(--ink); cursor:pointer;}
+.paypart-methods button small{font-size:11.5px; font-weight:600; color:var(--ink-soft);}
+.paypart-methods button.on{border-color:var(--amber); background:var(--amber-soft); color:var(--amber-deep);}
+.paypart-methods button:disabled{opacity:.45; cursor:not-allowed;}
+.paypart-fiscal{display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700;}
+.paypart-fiscal input{width:18px; height:18px; accent-color:var(--amber);}

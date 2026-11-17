@@ -13,6 +13,7 @@ import { useTables } from '@/hooks/useTables';
 import { useTaxSettings } from '@/hooks/useTaxSettings';
 import { describeOptions } from '@/lib/productOptions';
 import { ORDER_STATUS, PAY_METHODS, PAY_LABEL, tabTotals, minutesSince, useLiveReload, beep } from '@/lib/pos';
+import StaffPayments from '@/components/TabPayments';
 import { sendToPrinters } from '@/lib/print/send';
 import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
@@ -33,6 +34,7 @@ export default function CajaPage() {
   const { charges, totalPercent } = useTaxSettings(branch);
   const [tabs, setTabs] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [pendingPays, setPendingPays] = useState([]);
   const [waiters, setWaiters] = useState([]);
   const [error, setError] = useState('');
   const [openTableId, setOpenTableId] = useState(null);
@@ -51,9 +53,11 @@ export default function CajaPage() {
     setTabs(t || []);
     const ids = (t || []).map((x) => x.id);
     if (ids.length) {
-      const { data: o } = await sb.from('orders').select('id, tab_id, customer_name, items, subtotal, tax_amount, status, created_at, waiter_id').in('tab_id', ids).order('created_at');
+      const { data: o } = await sb.from('orders').select('id, tab_id, customer_name, items, subtotal, tax_amount, status, created_at, waiter_id, tab_payment_id').in('tab_id', ids).order('created_at');
       setOrders(o || []);
-    } else setOrders([]);
+      const { data: pp } = await sb.from('tab_payments').select('id, tab_id').eq('status', 'pending').in('tab_id', ids);
+      setPendingPays(pp || []);
+    } else { setOrders([]); setPendingPays([]); }
   }, [branch]);
   useEffect(() => { load(); }, [load]);
   useLiveReload(['tabs', 'orders'], load);
@@ -69,7 +73,7 @@ export default function CajaPage() {
   const tabByTable = useMemo(() => Object.fromEntries(tabs.filter((t) => t.table_id).map((t) => [t.table_id, t])), [tabs]);
   const ordersByTab = useMemo(() => {
     const m = {};
-    orders.forEach((o) => { (m[o.tab_id] = m[o.tab_id] || []).push(o); });
+    orders.filter((o) => !o.tab_payment_id).forEach((o) => { (m[o.tab_id] = m[o.tab_id] || []).push(o); });
     return m;
   }, [orders]);
 
@@ -113,6 +117,7 @@ export default function CajaPage() {
                     <span className="pos-table-meta">{tab.guests} pers. · {minutesSince(tab.created_at)} min</span>
                     {tab.status === 'bill' && <span className="pos-table-flag">Pide la cuenta</span>}
                     {tab.call_waiter_at && tab.status !== 'bill' && <span className="pos-table-flag">Llama</span>}
+                    {tab.status !== 'bill' && !tab.call_waiter_at && pendingPays.some((p) => p.tab_id === tab.id) && <span className="pos-table-flag">Quiere pagar</span>}
                   </>
                 ) : <span className="pos-table-meta">Libre</span>}
               </button>
@@ -195,12 +200,15 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
   }
 
   async function printBill() {
-    const r = await sendToPrinters({ role: 'caja', kind: 'prefactura', branch, payload: { tab: detail, charges, business } });
+    const r = await sendToPrinters({ role: 'caja', kind: 'prefactura', branch, payload: { tab: due, charges, business } });
     showToast(r.error || `Enviada a ${r.sent} ${r.sent === 1 ? 'impresora' : 'impresoras'}`);
   }
 
   const people = detail ? [...new Set(detail.orders.map((o) => o.customer_name).filter(Boolean))] : [];
-  const totals = detail ? tabTotals(detail.orders, charges) : null;
+  // lo que ya pagó cada quien desde su teléfono no se vuelve a cobrar
+  const unpaid = detail ? detail.orders.filter((o) => !o.paid) : [];
+  const due = detail ? { ...detail, orders: unpaid } : null;
+  const totals = detail ? tabTotals(unpaid, charges) : null;
 
   return (
     <Modal onClose={onClose} wide>
@@ -234,7 +242,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
           </div>
         ) : mode === 'bill' ? (
           <div className="pos-receipt-modal">
-            <div className="print-target"><Prefactura tab={detail} charges={charges} business={business} /></div>
+            <div className="print-target"><Prefactura tab={due} charges={charges} business={business} /></div>
             <div className="pos-row">
               <button type="button" className="btn btn-ghost" onClick={printReceipt}>Imprimir aquí</button>
               <button type="button" className="btn btn-amber" onClick={printBill}>Enviar a impresora</button>
@@ -242,7 +250,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
             <button type="button" className="pos-back" onClick={() => setMode('view')}>Volver a la cuenta</button>
           </div>
         ) : mode === 'pay' ? (
-          <PaySheet tab={detail} charges={charges} onCancel={() => setMode('view')} onPaid={(invoiceId) => { onChanged(); onClose(); window.location.href = `/factura/${invoiceId}`; }} showToast={showToast} />
+          <PaySheet tab={due} charges={charges} onCancel={() => setMode('view')} onPaid={(invoiceId) => { onChanged(); onClose(); if (invoiceId) window.location.href = `/factura/${invoiceId}`; }} showToast={showToast} />
         ) : mode === 'move' ? (
           <div className="pos-move">
             <p>¿A qué mesa pasa esta cuenta?</p>
@@ -269,14 +277,15 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
               </div>
             )}
             {detail.status === 'bill' && <div className="pos-call is-bill"><span>Pidieron la cuenta</span></div>}
+            <StaffPayments tab={detail} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
 
             <div className="pos-orders">
               {detail.orders.length === 0 && <p className="empty-note">Todavía no hay pedidos.</p>}
               {detail.orders.map((o) => {
                 const st = ORDER_STATUS[o.status] || ORDER_STATUS.nueva;
                 return (
-                  <div key={o.id} className="pos-order">
-                    <div className="pos-order-top"><b>{o.customer_name || 'Pedido'}</b><span className={`pos-chip is-${st.tone}`}>{st.label}</span></div>
+                  <div key={o.id} className={`pos-order${o.paid ? ' is-paid' : ''}`}>
+                    <div className="pos-order-top"><b>{o.customer_name || 'Pedido'}</b>{o.paid ? <span className="pos-chip is-paid">Pagado</span> : <span className={`pos-chip is-${st.tone}`}>{st.label}</span>}</div>
                     {o.items.map((it, i) => (
                       <div key={i} className="pos-order-line">
                         <span>{it.qty}× {it.name}{it.options && it.options.length ? <small>{describeOptions(it.options)}</small> : null}{it.notes ? <small>{it.notes}</small> : null}</span>
@@ -291,13 +300,13 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
             <div className="pos-sum">
               <div><span>Consumo</span><span>{money(totals.gross)}</span></div>
               {totals.taxLines.map((l) => <div key={l.label}><span>{l.label} ({l.percent}%)</span><span>{money(l.amount)}</span></div>)}
-              <div className="pos-sum-total"><span>Total</span><span>{money(totals.total)}</span></div>
+              <div className="pos-sum-total"><span>{unpaid.length < detail.orders.length ? 'Falta por cobrar' : 'Total'}</span><span>{money(totals.total)}</span></div>
             </div>
 
             <div className="pos-actions">
               <button type="button" className="btn btn-ghost" onClick={() => { setPerson(people[0] || detail.opened_name || ''); setMode('add'); }}>Agregar</button>
-              <button type="button" className="btn btn-ghost" onClick={() => setMode('bill')} disabled={!detail.orders.length}>Prefactura</button>
-              <button type="button" className="btn btn-amber pos-pay" onClick={() => setMode('pay')} disabled={!detail.orders.length}>Cobrar {money(totals.total)}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setMode('bill')} disabled={!unpaid.length}>Prefactura</button>
+              <button type="button" className="btn btn-amber pos-pay" onClick={() => setMode('pay')} disabled={!unpaid.length}>Cobrar {money(totals.total)}</button>
             </div>
             <div className="pos-more">
               <button type="button" onClick={() => setMode('move')}>Cambiar de mesa</button>
