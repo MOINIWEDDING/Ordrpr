@@ -638,7 +638,10 @@ begin
   returning id into inv;
 
   update public.tabs set status = 'closed', closed_at = now(), closed_by = auth.uid(), invoice_id = inv, call_waiter_at = null, updated_at = now() where id = t.id;
-  update public.orders set payment_method = case when array_length(methods, 1) = 1 then methods[1] else 'mixto' end where tab_id = t.id;
+  -- al cobrar, todo lo de la cuenta queda servido aunque cocina no lo haya marcado
+  update public.orders set payment_method = case when array_length(methods, 1) = 1 then methods[1] else 'mixto' end,
+    status = 'entregada'
+  where tab_id = t.id;
   return inv;
 end;
 $function$;
