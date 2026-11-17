@@ -67,6 +67,11 @@ export function CartProvider({ children }) {
     setLines((prev) => prev.map((l) => (l.lineKey === lineKey ? { ...l, notes } : l)));
   }, []);
 
+  // en una cuenta abierta, a quién de la mesa va cada producto
+  const setPerson = useCallback((lineKey, person) => {
+    setLines((prev) => prev.map((l) => (l.lineKey === lineKey ? { ...l, person } : l)));
+  }, []);
+
   const removeItem = useCallback((lineKey) => setLines((prev) => prev.filter((l) => l.lineKey !== lineKey)), []);
 
   const clear = useCallback(() => {
@@ -83,7 +88,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{
-      lines, count, subtotal, addItem, setQty, setNotes, removeItem, clear,
+      lines, count, subtotal, addItem, setQty, setNotes, setPerson, removeItem, clear,
       tableNumber, setTableNumber, customerName, setCustomerName,
       drawerOpen, openDrawer, closeDrawer,
     }}>

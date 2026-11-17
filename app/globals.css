@@ -1923,9 +1923,20 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 
 /* carrito con cuenta abierta */
 .tab-checkout{display:flex; flex-direction:column; gap:12px; margin-top:20px;}
-.tab-checkout-banner{display:flex; flex-direction:column; gap:2px; padding:12px 14px; border-radius:14px; background:var(--amber-soft);}
-.tab-checkout-banner b{font-size:15px; color:var(--amber-deep);}
-.tab-checkout-banner span{font-size:13px; color:var(--ink);}
+.tab-checkout-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 12px 12px 14px; border-radius:14px; background:var(--amber-soft);}
+.tab-checkout-banner > div{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.tab-checkout-banner > div b{font-size:15px; color:var(--amber-deep);}
+.tab-checkout-banner > div span{font-size:13px; color:var(--ink);}
+.tab-code{flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:1px; padding:7px 12px; border:1.5px dashed var(--amber); border-radius:12px; background:#fff; font-family:inherit; cursor:pointer; color:var(--ink);}
+.tab-code small{font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft);}
+.tab-code small:last-child{color:var(--amber-deep); letter-spacing:.04em;}
+.tab-code b{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:17px; font-weight:800; letter-spacing:.14em;}
+.tab-person{display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:100px; padding:5px 10px; background:#fff; color:var(--ink); font-size:12.5px; font-weight:700;}
+.ticket-people .tab-person button{border:none; padding:0 0 0 2px; background:none; font-size:15px; line-height:1; color:var(--ink-soft);}
+.tab-people input{width:104px;}
+.cart-line-for{margin-top:8px;}
+.tab-join-note{font-size:13px; color:var(--ink-soft); margin:0 0 8px;}
+.pay-when .order-type-btn{justify-content:center;}
 .tab-send{margin-top:4px;}
 .tab-checkout-link{align-self:center; font-size:13.5px; font-weight:700; color:var(--ink-soft);}
 .qr-sheet-wrap{display:flex; flex-direction:column; gap:14px; padding-bottom:24px;}

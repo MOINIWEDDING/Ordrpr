@@ -18,7 +18,7 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
 import { useLoyaltySettings } from '@/lib/loyalty';
-import { useActiveTab } from '@/lib/activeTab';
+import { useActiveTab, setActiveTab } from '@/lib/activeTab';
 import Link from 'next/link';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
@@ -30,13 +30,30 @@ const PAYMENT_METHODS = [
 ];
 
 export default function CartDrawer() {
-  const { lines, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
+  const { lines, setQty, setNotes, setPerson, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
   const { profile, refreshProfile } = useAuth();
   const { loyalty } = useLoyaltySettings();
   // con una cuenta abierta en la mesa, el carrito solo manda el pedido a la cocina (se paga al cerrar la cuenta)
   const activeTab = useActiveTab();
   const [sentToTab, setSentToTab] = useState(false);
+  const [payLater, setPayLater] = useState(true);
+  const [companions, setCompanions] = useState([]);
+  const [newCompanion, setNewCompanion] = useState('');
+  const [tabInfo, setTabInfo] = useState(null); // la cuenta tal como está (quiénes ya pidieron)
+  const [joinTab, setJoinTab] = useState(null); // la mesa ya tiene cuenta: { tab_id, opened_name }
+  const [joinCode, setJoinCode] = useState('');
   useEffect(() => { if (!drawerOpen) setSentToTab(false); }, [drawerOpen]);
+  useEffect(() => {
+    if (!drawerOpen || !activeTab || !BARRO_CONFIGURED) { setTabInfo(null); return; }
+    let live = true;
+    sb.rpc('tab_get', { tab_input: activeTab.id, code_input: activeTab.code }).then(({ data, error }) => {
+      if (!live || error) return;
+      // la cuenta ya se cerró (o ya no existe): el carrito vuelve a lo normal
+      if (!data || data.status === 'closed' || data.status === 'cancelled') { setActiveTab(null); return; }
+      setTabInfo(data);
+    });
+    return () => { live = false; };
+  }, [drawerOpen, activeTab]);
   const { branch, branchInfo } = useBranch();
   const { tables } = useTables(branch);
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
@@ -66,6 +83,12 @@ export default function CartDrawer() {
   const effectiveAge = profile ? profile.age : guestInfo.age;
 
   const effectiveName = customerName || (profile ? profile.name : '') || '';
+  // Cuenta abierta: si ya hay una en este aparato, o si come aquí en una mesa real y elige pagar al final.
+  const realTables = BARRO_CONFIGURED && tables.length > 0 && !String(tables[0].id).startsWith('demo-');
+  const tabFlow = !!activeTab || (orderType === 'dine_in' && realTables && payLater);
+  const tabPeopleNames = tabInfo ? [tabInfo.opened_name, ...(tabInfo.orders || []).map((o) => o.customer_name)] : [];
+  const people = [...new Set([effectiveName.trim(), ...companions, ...tabPeopleNames].map((n) => (n || '').trim()).filter(Boolean))];
+  const personOf = (l) => (l.person && people.includes(l.person) ? l.person : effectiveName.trim());
   const viewPromo = promoDiscount(appliedPromo, lines.map((l) => ({ ...l, price: linePriceFor(l, currency) })), viewSubtotal);
   const taxBase = viewSubtotal - viewPromo.amount;
   const taxAmount = Math.round((taxBase * taxPercent) / 100);
@@ -90,24 +113,74 @@ export default function CartDrawer() {
     setPromoMsg('');
   }
 
+  function addCompanion() {
+    const n = newCompanion.trim().slice(0, 30);
+    if (n && !people.includes(n)) setCompanions((c) => [...c, n]);
+    setNewCompanion('');
+  }
+
+  async function shareCode() {
+    if (!activeTab) return;
+    const url = `${window.location.origin}/mesa/${activeTab.table_id}`;
+    const text = `Únete a nuestra cuenta (${activeTab.table_label}). Código: ${activeTab.code}`;
+    try {
+      if (navigator.share) { await navigator.share({ text, url }); return; }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      showToast('Copiado: compártelo con tu mesa');
+    } catch (e) { /* cancelado */ }
+  }
+
+  // Abre la cuenta de la mesa (o se une con el código) y manda un pedido por cada persona.
   async function handleSendToTab() {
-    if (!lines.length || !activeTab) return;
+    if (!lines.length) return;
     if (!effectiveName.trim()) { setPlaceError('Escribe tu nombre antes de continuar.'); return; }
     if (!BARRO_CONFIGURED) { setPlaceError('Conecta Supabase para enviar pedidos.'); return; }
     setPlaceError('');
     setPlacing(true);
-    // la cuenta se cobra en la moneda principal, con los precios normales
-    const items = lines.map((l) => ({ id: l.id, name: l.name, price: linePriceFor(l, currencies[0]), qty: l.qty, notes: l.notes || '', options: l.options || [] }));
-    const subtotal = items.reduce((s, l) => s + l.qty * l.price, 0);
-    const { error } = await sb.rpc('tab_add_order', {
-      tab_input: activeTab.id,
-      code_input: activeTab.code,
-      order_input: { customer_name: effectiveName.trim(), items, subtotal, tax_amount: Math.round((subtotal * taxPercent) / 100), push_ref: profile ? null : getGuestPushRef() },
-    });
-    setPlacing(false);
-    if (error) { setPlaceError(/cerrada/i.test(error.message) ? 'Esta cuenta ya está cerrada. Abre una nueva desde el QR de tu mesa.' : `No se pudo enviar: ${error.message}`); return; }
-    clear();
-    setSentToTab(true);
+    try {
+      let tab = activeTab;
+      if (!tab) {
+        if (joinTab) {
+          const { data } = await sb.rpc('tab_get', { tab_input: joinTab.tab_id, code_input: joinCode.trim() });
+          if (!data) throw new Error('Ese código no es el de esta mesa.');
+          tab = data;
+        } else {
+          const table = tables.find((t) => t.label === tableNumber);
+          if (!table) throw new Error('Elige tu mesa antes de continuar.');
+          const { data, error } = await sb.rpc('tab_open', { table_input: table.id, name_input: effectiveName.trim(), guests_input: partySize });
+          if (error) throw error;
+          if (data && data.reason === 'exists' && data.tab_id) { setJoinTab({ tab_id: data.tab_id, opened_name: data.opened_name }); return; }
+          if (!data || !data.ok) throw new Error('No se pudo abrir la cuenta. Intenta de nuevo.');
+          tab = data.tab;
+        }
+        setActiveTab(tab);
+      }
+      // la cuenta se cobra en la moneda principal, con los precios normales
+      const groups = new Map();
+      lines.forEach((l) => { const who = personOf(l); if (!groups.has(who)) groups.set(who, []); groups.get(who).push(l); });
+      for (const [who, group] of groups) {
+        const items = group.map((l) => ({ id: l.id, name: l.name, price: linePriceFor(l, currencies[0]), qty: l.qty, notes: l.notes || '', options: l.options || [] }));
+        const subtotal = items.reduce((sum, l) => sum + l.qty * l.price, 0);
+        const { error } = await sb.rpc('tab_add_order', {
+          tab_input: tab.id,
+          code_input: tab.code,
+          order_input: { customer_name: who, items, subtotal, tax_amount: Math.round((subtotal * taxPercent) / 100), push_ref: profile ? null : getGuestPushRef() },
+        });
+        if (error) throw error;
+        group.forEach((l) => removeItem(l.lineKey)); // lo enviado ya no se repite si algo falla después
+      }
+      clear();
+      setJoinTab(null);
+      setJoinCode('');
+      setSentToTab(true);
+    } catch (e) {
+      const msg = e.message || '';
+      setPlaceError(/cerrada/i.test(msg) ? 'Esta cuenta ya está cerrada. Abre una nueva desde el QR de tu mesa.'
+        : /tab_open|tab_add_order|schema cache/i.test(msg) ? 'Las cuentas abiertas todavía no están disponibles en este restaurante.'
+        : msg);
+    } finally {
+      setPlacing(false);
+    }
   }
 
   async function handlePay(method) {
@@ -410,6 +483,12 @@ export default function CartDrawer() {
                               value={l.notes || ''}
                               onChange={(e) => setNotes(l.lineKey, e.target.value)}
                             />
+                            {tabFlow && people.length > 1 && (
+                              <div className="ticket-people cart-line-for">
+                                <span>Para</span>
+                                {people.map((p) => <button key={p} type="button" className={personOf(l) === p ? 'on' : ''} onClick={() => setPerson(l.lineKey, p)}>{p}</button>)}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -417,18 +496,49 @@ export default function CartDrawer() {
                       {activeTab ? (
                         <div className="tab-checkout">
                           <div className="tab-checkout-banner">
-                            <b>{activeTab.table_label}</b>
-                            <span>Se suma a tu cuenta abierta: pagas al final.</span>
+                            <div>
+                              <b>{activeTab.table_label}</b>
+                              <span>Se suma a tu cuenta abierta: pagas al final.</span>
+                            </div>
+                            <button type="button" className="tab-code" onClick={shareCode} aria-label="Compartir el código con la mesa">
+                              <small>Código</small>
+                              <b>{activeTab.code}</b>
+                              <small>Compartir</small>
+                            </button>
                           </div>
                           <div className="field">
-                            <label htmlFor="cartNameTab">¿Para quién es?</label>
+                            <label htmlFor="cartNameTab">Tu nombre</label>
                             <input id="cartNameTab" type="text" placeholder="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                           </div>
+                          <div className="field">
+                            <label htmlFor="cartCompanion">En la mesa</label>
+                            <div className="ticket-people tab-people">
+                              {people.map((p) => (
+                                <span key={p} className="tab-person">
+                                  {p}
+                                  {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
+                                </span>
+                              ))}
+                              <input id="cartCompanion" type="text" placeholder="+ Persona" maxLength={30} value={newCompanion}
+                                onChange={(e) => setNewCompanion(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }}
+                                onBlur={addCompanion} />
+                            </div>
+                          </div>
+                          {joinTab && !activeTab && (
+                            <div className="field">
+                              <label htmlFor="cartJoinCode">Código de la cuenta</label>
+                              <p className="tab-join-note">{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
+                              <input id="cartJoinCode" className="mesa-code" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+                            </div>
+                          )}
                           <div className="cart-totals">
-                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((s, l) => s + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
+                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
                           </div>
                           {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing}>{placing ? 'Enviando…' : 'Enviar a la cocina'}</button>
+                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing || (joinTab && !activeTab && joinCode.trim().length < 4)}>
+                            {placing ? 'Enviando…' : activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar a la cocina' : 'Abrir cuenta y enviar a la cocina'}
+                          </button>
                           <Link href="/mi-mesa" className="tab-checkout-link" onClick={closeDrawer}>Ver mi cuenta</Link>
                         </div>
                       ) : (<>
@@ -464,7 +574,7 @@ export default function CartDrawer() {
                           <>
                             <div className="field">
                               <label htmlFor="cartTable">Tu mesa</label>
-                              <select id="cartTable" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)}>
+                              <select id="cartTable" value={tableNumber} onChange={(e) => { setTableNumber(e.target.value); setJoinTab(null); setJoinCode(''); }}>
                                 <option value="">Elige tu mesa…</option>
                                 {tables.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
                               </select>
@@ -477,12 +587,55 @@ export default function CartDrawer() {
                                 <button type="button" onClick={() => setPartySize((n) => Math.min(20, n + 1))} aria-label="Más">+</button>
                               </div>
                             </div>
+                            {realTables && (
+                              <div className="field">
+                                <label>¿Cuándo pagas?</label>
+                                <div className="order-type-row pay-when">
+                                  <button type="button" className={`order-type-btn${payLater ? ' active' : ''}`} onClick={() => setPayLater(true)}>Al final</button>
+                                  <button type="button" className={`order-type-btn${!payLater ? ' active' : ''}`} onClick={() => { setPayLater(false); setJoinTab(null); }}>Ahora</button>
+                                </div>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
                       {branch && (
                         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Pidiendo en: {branchInfo?.full}</p>
                       )}
+
+                      {tabFlow ? (
+                        <div className="tab-checkout">
+                          <div className="field">
+                            <label htmlFor="cartCompanion">En la mesa</label>
+                            <div className="ticket-people tab-people">
+                              {people.map((p) => (
+                                <span key={p} className="tab-person">
+                                  {p}
+                                  {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
+                                </span>
+                              ))}
+                              <input id="cartCompanion" type="text" placeholder="+ Persona" maxLength={30} value={newCompanion}
+                                onChange={(e) => setNewCompanion(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }}
+                                onBlur={addCompanion} />
+                            </div>
+                          </div>
+                          {joinTab && !activeTab && (
+                            <div className="field">
+                              <label htmlFor="cartJoinCode">Código de la cuenta</label>
+                              <p className="tab-join-note">{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
+                              <input id="cartJoinCode" className="mesa-code" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+                            </div>
+                          )}
+                          <div className="cart-totals">
+                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
+                          </div>
+                          {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
+                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing || (joinTab && !activeTab && joinCode.trim().length < 4)}>
+                            {placing ? 'Enviando…' : activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar a la cocina' : 'Abrir cuenta y enviar a la cocina'}
+                          </button>
+                        </div>
+                      ) : (<>
 
                       {appliedPromo ? (
                         <div className="promo-applied">
@@ -544,6 +697,7 @@ export default function CartDrawer() {
                         Efectivo y tarjeta se cobran en persona en el local — solo estás avisando cómo vas a pagar.
                         {!currency.base && ` La gift card se descuenta en ${currencies[0].symbol}.`}
                       </p>
+                      </>)}
                       </>)}
                     </>
                   )}
