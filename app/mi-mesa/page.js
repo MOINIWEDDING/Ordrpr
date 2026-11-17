@@ -103,7 +103,7 @@ export default function MiMesaPage() {
 
             <div className="mimesa-actions">
               <Link href="/menu" className="btn btn-amber">Pedir más</Link>
-              <button type="button" className="btn btn-ghost" onClick={() => act('tab_call_waiter', 'Ya avisamos al camarero')}>Llamar al camarero</button>
+              <button type="button" className="btn btn-ghost" onClick={() => act('tab_call_waiter', 'Ya avisamos al camarero')}>Llamar camarero</button>
               <button type="button" className="btn btn-ghost" onClick={() => act('tab_request_bill', 'Listo, ya pediste la cuenta')} disabled={tab.status === 'bill' || !tab.orders.length}>Pedir la cuenta</button>
             </div>
 

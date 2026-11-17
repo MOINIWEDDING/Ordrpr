@@ -104,7 +104,7 @@ export default function PrinterManager() {
           <label htmlFor="prName">Nombre</label>
           <input id="prName" type="text" maxLength={40} placeholder="Cocina principal" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </div>
-        <div className="pe-money-row">
+        <div className="pe-money-row printer-form-row">
           <div className="field">
             <label htmlFor="prRole">Imprime</label>
             <select id="prRole" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>

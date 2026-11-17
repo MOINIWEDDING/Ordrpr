@@ -1250,6 +1250,7 @@ header{display:none;}
   .pilar-grid{display:grid; grid-template-columns:1fr 1fr;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
   .modal{max-width:520px; border-radius:26px; margin-bottom:24px;}
+  .modal.wide{max-width:min(1080px, 96vw);}
   .overlay{align-items:center; padding:24px;}
   .modal-actions{flex-direction:row;}
   .modal-actions .btn{flex:1;}
@@ -1872,7 +1873,8 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 .mesa-code{width:100%; text-align:center; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:28px; font-weight:800; letter-spacing:.3em; padding:14px; border:2px dashed rgba(36,28,19,.25); border-radius:16px; background:var(--cream); text-transform:uppercase;}
 .factura-tools{width:100%; max-width:360px; display:flex; justify-content:space-between; align-items:center;}
 
-.mimesa-page{padding:24px 0 calc(var(--tab-h) + 48px);}
+.mimesa-page{padding:24px 0 calc(var(--tab-h) + 120px);}
+.mimesa-page .wrap{max-width:720px;}
 .mimesa-empty{min-height:55vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center;}
 .mimesa-empty p{color:var(--ink-soft); max-width:320px;}
 .mimesa-head{display:flex; align-items:flex-start; justify-content:space-between; gap:14px;}
@@ -1917,7 +1919,7 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 .pos-chip.is-cooking{background:var(--amber-soft); color:var(--amber-deep);}
 .pos-chip.is-ready{background:#E1EADD; color:var(--ok);}
 .pos-chip.is-done{background:var(--cream-2); color:var(--ink-soft);}
-.pos-receipt-modal{display:flex; flex-direction:column; gap:14px; padding:26px 16px 20px; background:var(--cream-2);}
+.pos-receipt-modal{display:flex; flex-direction:column; gap:14px; padding:62px 16px 20px; background:var(--cream-2);}
 
 /* carrito con cuenta abierta */
 .tab-checkout{display:flex; flex-direction:column; gap:12px; margin-top:20px;}
@@ -1981,6 +1983,9 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 .pos-sum-total{margin-top:4px; padding-top:8px; border-top:1px solid var(--line); font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--ink) !important;}
 .pos-actions{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px;}
 .pos-actions .pos-pay{grid-column:1 / -1; font-size:16px;}
+.printer-form-row{grid-template-columns:1fr !important;}
+.pos-actions .btn{white-space:nowrap;}
+.mimesa-actions .btn{white-space:nowrap;}
 .pos-more{display:flex; flex-wrap:wrap; justify-content:center; gap:14px; margin-top:12px;}
 .pos-more button, .pos-back{border:none; background:none; font-family:inherit; font-size:13px; font-weight:700; color:var(--ink-soft); text-decoration:underline; text-underline-offset:3px; cursor:pointer; align-self:center; display:block; margin:10px auto 0;}
 .pos-row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
@@ -2057,8 +2062,8 @@ button.promo-ticket:focus-visible{outline:2px solid var(--amber); outline-offset
 .pay-parts{display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700;}
 .pay-rows{display:flex; flex-direction:column; gap:8px;}
 .pay-row{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;}
-.pay-row:has(.pay-row-who){grid-template-columns:90px auto 1fr auto;}
-.pay-row-who{font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pay-row:has(.pay-row-del){grid-template-columns:auto 1fr auto;}
+.pay-row-who{grid-column:1 / -1; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:6px 0 -2px;}
 .pay-row select{border:1px solid var(--line); border-radius:12px; padding:10px; font-family:inherit; font-size:13.5px; font-weight:700; background:#fff;}
 .pay-row-del{width:32px; height:32px; border:none; border-radius:50%; background:var(--cream-2); font-size:18px; cursor:pointer;}
 .pay-cash{display:grid; grid-template-columns:1fr; gap:6px; padding:12px; background:#fff; border:1px solid var(--line); border-radius:14px;}

@@ -117,7 +117,7 @@ function OrderCard({ order, branchName }) {
           </li>
         ))}
       </ul>
-      {order.party_size > 1 && (
+      {order.party_size > 1 && !order.tab_id && (
         <p className="muted" style={{ fontSize: 11.5, marginTop: -4, marginBottom: 10 }}>
           Dividida entre {order.party_size}: {money(Math.round((order.subtotal + (order.tax_amount || 0)) / order.party_size))} c/u
         </p>

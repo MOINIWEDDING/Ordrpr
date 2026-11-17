@@ -66,7 +66,7 @@ function OptionsSheet({ item, onClose, onDone }) {
       <div className="picker-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="picker-sheet-head">
           <b>{item.name}</b>
-          <span>{money(item.price + extra)}</span>
+          <span>{money(Number(item.price) + extra)}</span>
         </div>
         {item.ingredients && <p className="picker-sheet-ing">{item.ingredients}</p>}
         {groups.map((g) => (

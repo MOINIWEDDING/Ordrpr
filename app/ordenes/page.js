@@ -152,7 +152,7 @@ function OrdersList() {
               <h4>{order.customer_name}</h4>
               <span className="order-meta">{order.table_number} · {timeAgo(order.created_at)}</span>
             </div>
-            <span className="order-price">{money(order.subtotal + (order.tax_amount || 0))}</span>
+            <span className="order-price">{money(Number(order.subtotal) + Number(order.tax_amount || 0))}</span>
           </div>
 
           <ul className="order-items">
@@ -171,7 +171,7 @@ function OrdersList() {
               {Number(order.promo.discount) > 0 && <span className="order-promo-off">−{money(order.promo.discount)}</span>}
             </div>
           )}
-          {order.party_size > 1 && (
+          {order.party_size > 1 && !order.tab_id && (
             <div className="split-bill-note">
               <span className="eyebrow">Dividida entre {order.party_size}</span>
               {(order.payment_breakdown || []).map((b) => (

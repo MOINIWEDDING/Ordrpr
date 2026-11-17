@@ -295,7 +295,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
             </div>
 
             <div className="pos-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => { setPerson(people[0] || detail.opened_name || ''); setMode('add'); }}>Agregar productos</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setPerson(people[0] || detail.opened_name || ''); setMode('add'); }}>Agregar</button>
               <button type="button" className="btn btn-ghost" onClick={() => setMode('bill')} disabled={!detail.orders.length}>Prefactura</button>
               <button type="button" className="btn btn-amber pos-pay" onClick={() => setMode('pay')} disabled={!detail.orders.length}>Cobrar {money(totals.total)}</button>
             </div>
