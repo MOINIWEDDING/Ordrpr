@@ -30,9 +30,15 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe();
   }, [refreshProfile]);
 
-  const isStaff = !!profile && profile.role === 'staff';
-  const isComensal = !!profile && profile.role === 'comensal';
-  const canManageOrders = isStaff || isComensal;
+  const userRole = profile ? profile.role : null;
+  const isStaff = userRole === 'staff'; // el dueño
+  const isComensal = userRole === 'comensal';
+  const isCashier = userRole === 'cajero';
+  const isWaiter = userRole === 'camarero';
+  const isKitchen = userRole === 'cocina';
+  // todo el personal ve las órdenes; caja y camareros además manejan cuentas
+  const canManageOrders = isStaff || isComensal || isCashier || isWaiter || isKitchen;
+  const canUsePos = isStaff || isComensal || isCashier || isWaiter;
 
   const openAuth = useCallback((m, r) => { setMode(m); setRole(r); setModalOpen(true); }, []);
   const closeAuth = useCallback(() => setModalOpen(false), []);
@@ -62,7 +68,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      profile, authReady, isStaff, isComensal, canManageOrders, modalOpen, mode, role, setMode, setRole,
+      profile, authReady, userRole, isStaff, isComensal, isCashier, isWaiter, isKitchen, canManageOrders, canUsePos,
+      modalOpen, mode, role, setMode, setRole,
       openAuth, closeAuth, login, signup, logout, refreshProfile,
     }}>
       {children}

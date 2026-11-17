@@ -6,39 +6,20 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useLoyaltySettings } from '@/lib/loyalty';
+import { useActiveTab } from '@/lib/activeTab';
+import { navForRole } from '@/lib/roleNav';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
-
-const GUEST_LINKS = [
-  { href: '/', label: 'Inicio' },
-  { href: '/nosotros', label: 'Nosotros' },
-  { href: '/menu', label: 'Menú' },
-  { href: '/pedidos', label: 'Pedidos' },
-];
-
-const STAFF_LINKS = [
-  { href: '/', label: 'Inicio' },
-  { href: '/menu', label: 'Menú' },
-  { href: '/ordenes', label: 'Órdenes', badge: true },
-  { href: '/estadisticas', label: 'Estadísticas' },
-  { href: '/promociones', label: 'Promociones' },
-  { href: '/usuarios', label: 'Usuarios' },
-];
-
-const COMENSAL_LINKS = [
-  { href: '/ordenes', label: 'Órdenes', badge: true },
-];
 
 export default function Header() {
   const pathname = usePathname();
   const { count, openDrawer } = useCart();
-  const { profile, isStaff, isComensal } = useAuth();
+  const { profile, userRole } = useAuth();
+  const activeTab = useActiveTab();
   const { unseenCount } = useOrdersNotify();
   const { settings } = useSettings();
   const { loyalty } = useLoyaltySettings();
   const [solid, setSolid] = useState(false);
-  const links = (isStaff ? STAFF_LINKS : isComensal ? COMENSAL_LINKS : GUEST_LINKS)
-    .filter((l) => l.href !== '/nosotros' || settings.show_nosotros !== false)
-    .concat(!isStaff && !isComensal && loyalty.enabled ? [{ href: '/pase', label: 'Pase de sellos' }] : []);
+  const links = navForRole(userRole, { showNosotros: settings.show_nosotros !== false, loyalty: loyalty.enabled, activeTab: Boolean(activeTab) }).desktop;
 
   useEffect(() => {
     function onScroll() { setSolid(window.scrollY > 40); }
@@ -55,7 +36,7 @@ export default function Header() {
         <nav className="links">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className={pathname === l.href || (l.href !== '/' && pathname.startsWith(`${l.href}/`)) ? 'current' : ''} style={{ position: 'relative' }}>
-              {l.label}
+              {l.desktop || l.label}
               {l.badge && unseenCount > 0 && <span className="tab-badge" style={{ position: 'absolute', top: -8, right: -16 }}>{unseenCount > 9 ? '9+' : unseenCount}</span>}
             </Link>
           ))}

@@ -1,6 +1,6 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useBranch } from '@/context/BranchContext';
@@ -18,6 +18,8 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
 import { useLoyaltySettings } from '@/lib/loyalty';
+import { useActiveTab } from '@/lib/activeTab';
+import Link from 'next/link';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
 
@@ -31,6 +33,10 @@ export default function CartDrawer() {
   const { lines, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
   const { profile, refreshProfile } = useAuth();
   const { loyalty } = useLoyaltySettings();
+  // con una cuenta abierta en la mesa, el carrito solo manda el pedido a la cocina (se paga al cerrar la cuenta)
+  const activeTab = useActiveTab();
+  const [sentToTab, setSentToTab] = useState(false);
+  useEffect(() => { if (!drawerOpen) setSentToTab(false); }, [drawerOpen]);
   const { branch, branchInfo } = useBranch();
   const { tables } = useTables(branch);
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
@@ -82,6 +88,26 @@ export default function CartDrawer() {
   function removePromo() {
     setAppliedPromo(null);
     setPromoMsg('');
+  }
+
+  async function handleSendToTab() {
+    if (!lines.length || !activeTab) return;
+    if (!effectiveName.trim()) { setPlaceError('Escribe tu nombre antes de continuar.'); return; }
+    if (!BARRO_CONFIGURED) { setPlaceError('Conecta Supabase para enviar pedidos.'); return; }
+    setPlaceError('');
+    setPlacing(true);
+    // la cuenta se cobra en la moneda principal, con los precios normales
+    const items = lines.map((l) => ({ id: l.id, name: l.name, price: linePriceFor(l, currencies[0]), qty: l.qty, notes: l.notes || '', options: l.options || [] }));
+    const subtotal = items.reduce((s, l) => s + l.qty * l.price, 0);
+    const { error } = await sb.rpc('tab_add_order', {
+      tab_input: activeTab.id,
+      code_input: activeTab.code,
+      order_input: { customer_name: effectiveName.trim(), items, subtotal, tax_amount: Math.round((subtotal * taxPercent) / 100), push_ref: profile ? null : getGuestPushRef() },
+    });
+    setPlacing(false);
+    if (error) { setPlaceError(/cerrada/i.test(error.message) ? 'Esta cuenta ya está cerrada. Abre una nueva desde el QR de tu mesa.' : `No se pudo enviar: ${error.message}`); return; }
+    clear();
+    setSentToTab(true);
   }
 
   async function handlePay(method) {
@@ -260,7 +286,17 @@ export default function CartDrawer() {
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
           >
-            {success ? (
+            {sentToTab ? (
+              <div className="order-success">
+                <motion.div className="order-check" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.05 }}>
+                  <motion.svg viewBox="0 0 24 24" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 0.25 }}><path d="M5 13l4 4L19 7" /></motion.svg>
+                </motion.div>
+                <motion.h3 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>¡Va para la cocina!</motion.h3>
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>Se sumó a la cuenta de {activeTab ? activeTab.table_label : 'tu mesa'}.</motion.p>
+                <Link href="/mi-mesa" className="btn btn-amber btn-block" style={{ marginTop: 18 }} onClick={() => { setSentToTab(false); closeDrawer(); }}>Ver mi cuenta</Link>
+                <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => { setSentToTab(false); closeDrawer(); }}>Seguir viendo el menú</button>
+              </div>
+            ) : success ? (
               earlyBirdResult ? (
                 <>
                 {lastOrderSummary?.promo?.text && <PromoRedeemed promo={lastOrderSummary.promo} />}
@@ -378,6 +414,24 @@ export default function CartDrawer() {
                         ))}
                       </div>
 
+                      {activeTab ? (
+                        <div className="tab-checkout">
+                          <div className="tab-checkout-banner">
+                            <b>{activeTab.table_label}</b>
+                            <span>Se suma a tu cuenta abierta: pagas al final.</span>
+                          </div>
+                          <div className="field">
+                            <label htmlFor="cartNameTab">¿Para quién es?</label>
+                            <input id="cartNameTab" type="text" placeholder="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                          </div>
+                          <div className="cart-totals">
+                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((s, l) => s + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
+                          </div>
+                          {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
+                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing}>{placing ? 'Enviando…' : 'Enviar a la cocina'}</button>
+                          <Link href="/mi-mesa" className="tab-checkout-link" onClick={closeDrawer}>Ver mi cuenta</Link>
+                        </div>
+                      ) : (<>
                       <div className="checkout-fields">
                         <div className="field">
                           <label htmlFor="cartName">Tu nombre</label>
@@ -490,6 +544,7 @@ export default function CartDrawer() {
                         Efectivo y tarjeta se cobran en persona en el local — solo estás avisando cómo vas a pagar.
                         {!currency.base && ` La gift card se descuenta en ${currencies[0].symbol}.`}
                       </p>
+                      </>)}
                     </>
                   )}
                 </div>

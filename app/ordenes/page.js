@@ -13,6 +13,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { sendOrderPush, orderPushNotice } from '@/lib/push';
 import { notifyWallet } from '@/lib/loyalty';
+import { openInvoiceForOrder } from '@/lib/invoices';
+import { PAY_LABEL } from '@/lib/pos';
 
 const STATUS_LABELS = {
   nueva: 'Nueva',
@@ -21,12 +23,7 @@ const STATUS_LABELS = {
   entregada: 'Entregada',
 };
 const STATUS_ORDER = ['nueva', 'en_preparacion', 'lista', 'entregada'];
-const PAY_LABELS = {
-  efectivo: 'Efectivo',
-  tarjeta: 'Tarjeta',
-  gift_card: 'Tarjeta de regalo',
-  dividido: 'Dividida entre varios',
-};
+const PAY_LABELS = { ...PAY_LABEL, gift_card: 'Tarjeta de regalo', dividido: 'Dividida entre varios' };
 
 function timeAgo(dateStr) {
   const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
@@ -38,19 +35,19 @@ function timeAgo(dateStr) {
 }
 
 export default function OrdenesPage() {
-  const { profile, isStaff, isComensal } = useAuth();
+  const { profile, isStaff, canManageOrders } = useAuth();
   const { markSeen } = useOrdersNotify();
   const { branchInfo } = useBranch();
   const router = useRouter();
   const [tab, setTab] = useState('pedidos'); // 'pedidos' | 'giftcards'
 
   useEffect(() => {
-    if (profile && !isStaff && !isComensal) router.push('/');
-  }, [profile, isStaff, isComensal, router]);
+    if (profile && !canManageOrders) router.push('/');
+  }, [profile, canManageOrders, router]);
 
   useEffect(() => { markSeen(); }, [markSeen]);
 
-  if (!profile || (!isStaff && !isComensal)) return null;
+  if (!profile || !canManageOrders) return null;
 
   return (
     <section className="ordenes-page">
@@ -73,6 +70,7 @@ export default function OrdenesPage() {
 }
 
 function OrdersList() {
+  const router = useRouter();
   const { branch } = useBranch();
   const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
@@ -154,7 +152,7 @@ function OrdersList() {
               <h4>{order.customer_name}</h4>
               <span className="order-meta">{order.table_number} · {timeAgo(order.created_at)}</span>
             </div>
-            <span className="order-price">{money(order.subtotal + (order.tax_amount || 0))}</span>
+            <span className="order-price">{money(Number(order.subtotal) + Number(order.tax_amount || 0))}</span>
           </div>
 
           <ul className="order-items">
@@ -173,7 +171,7 @@ function OrdersList() {
               {Number(order.promo.discount) > 0 && <span className="order-promo-off">−{money(order.promo.discount)}</span>}
             </div>
           )}
-          {order.party_size > 1 && (
+          {order.party_size > 1 && !order.tab_id && (
             <div className="split-bill-note">
               <span className="eyebrow">Dividida entre {order.party_size}</span>
               {(order.payment_breakdown || []).map((b) => (
@@ -187,6 +185,7 @@ function OrdersList() {
 
           <div className="order-card-bottom">
             <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}{order.payment_currency ? ` · ${formatIn(order.payment_currency.total, order.payment_currency)}` : ''}</span>
+            <button type="button" className="order-invoice-btn" onClick={async () => { const note = await openInvoiceForOrder(order.id, router); if (note) showToast(note); }}>Factura</button>
             <select
               className="order-status"
               value={order.status}

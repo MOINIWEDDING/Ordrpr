@@ -18,7 +18,7 @@ import Reveal from './Reveal';
 export default function MenuCarta() {
   const { isStaff } = useAuth();
   const { categories, reload: reloadCategories } = useCategories();
-  const { items, reload: reloadItems } = useMenuItems();
+  const { items, reload: reloadItems } = useMenuItems({ hideUnavailable: !isStaff });
   const [query, setQuery] = useState('');
   const [viewingItem, setViewingItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null); // {item, defaultCategory} | null

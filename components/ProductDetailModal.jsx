@@ -26,6 +26,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   }
 
   function handleAdd() {
+    if (item.available === false) return;
     const need = missingRequired(options, selected);
     if (need) { setMissing(need); return; }
     // en el orden de los grupos, para que el carrito y la orden lo muestren igual que el menú
@@ -107,8 +108,9 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
           </div>
 
           {missing && <p className="pd-missing" role="alert">Elige {missing.toLowerCase()} para continuar</p>}
+          {item.available === false && <p className="pd-missing" role="alert">Agotado por ahora</p>}
           <div className="pd-cta-wrap">
-            <motion.button whileTap={{ scale: 0.92 }} type="button" className="pd-cta" onClick={handleAdd} aria-label="Agregar al carrito">
+            <motion.button whileTap={{ scale: 0.92 }} type="button" className="pd-cta" onClick={handleAdd} disabled={item.available === false} aria-label="Agregar al carrito">
               <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
             </motion.button>
           </div>

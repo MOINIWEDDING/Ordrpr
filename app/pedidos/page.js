@@ -1,6 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/context/ToastContext';
+import { openInvoiceForOrder } from '@/lib/invoices';
+import { PAY_LABEL } from '@/lib/pos';
 import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
@@ -19,11 +23,7 @@ const ORDER_STATUS_LABELS = {
   entregada: 'Entregada',
 };
 
-const PAY_LABELS = {
-  efectivo: 'Efectivo',
-  tarjeta: 'Tarjeta',
-  gift_card: 'Tarjeta de regalo',
-};
+const PAY_LABELS = { ...PAY_LABEL, gift_card: 'Tarjeta de regalo' };
 
 function timeAgo(dateStr) {
   const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
@@ -90,8 +90,17 @@ function GuestOrders() {
 }
 
 function OrderCard({ order, branchName }) {
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [opening, setOpening] = useState(false);
+  async function invoice() {
+    setOpening(true);
+    const note = await openInvoiceForOrder(order.id, router);
+    setOpening(false);
+    if (note) showToast(note);
+  }
   return (
-    <div className="order-card">
+    <div className="order-card is-clickable" role="button" tabIndex={0} onClick={invoice} onKeyDown={(e) => { if (e.key === 'Enter') invoice(); }} aria-label={`Ver la factura de ${order.table_number || 'este pedido'}`}>
       <div className="order-card-top">
         <div>
           <h4>{order.table_number}</h4>
@@ -108,7 +117,7 @@ function OrderCard({ order, branchName }) {
           </li>
         ))}
       </ul>
-      {order.party_size > 1 && (
+      {order.party_size > 1 && !order.tab_id && (
         <p className="muted" style={{ fontSize: 11.5, marginTop: -4, marginBottom: 10 }}>
           Dividida entre {order.party_size}: {money(Math.round((order.subtotal + (order.tax_amount || 0)) / order.party_size))} c/u
         </p>
@@ -117,6 +126,7 @@ function OrderCard({ order, branchName }) {
         <span className="order-pay">{PAY_LABELS[order.payment_method] || order.payment_method}{order.payment_currency ? ` · ${formatIn(order.payment_currency.total, order.payment_currency)}` : ''}</span>
         <span className={`order-status-badge status-${order.status}`}>{ORDER_STATUS_LABELS[order.status] || order.status}</span>
       </div>
+      <span className="order-invoice-link">{opening ? 'Abriendo…' : 'Ver factura'}</span>
     </div>
   );
 }

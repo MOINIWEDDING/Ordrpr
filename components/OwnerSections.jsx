@@ -17,6 +17,8 @@ import TeamManager from '@/components/TeamManager';
 import HomeOrderManager from '@/components/HomeOrderManager';
 import CsvImporter from '@/components/CsvImporter';
 import MenuDesignEditor from '@/components/MenuDesignEditor';
+import InvoiceSettingsForm from '@/components/InvoiceSettingsForm';
+import PrinterManager from '@/components/PrinterManager';
 
 export function Chevron({ className = '' }) {
   return <svg className={`acct-chevron ${className}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>;
@@ -98,7 +100,9 @@ export function ownerSections({ onGift }) {
         { id: 'identity', title: 'Nombre y logo', desc: 'Nombre, eslogan, logo y descripción para Google.', render: () => <BrandSettingsForm group="identity" /> },
         { id: 'colors', title: 'Colores', desc: 'Los colores de botones, fondos y textos.', render: () => <ThemeEditor /> },
         { id: 'branches', title: 'Sucursales', desc: 'Los locales donde atiendes.', render: () => <BranchesManager /> },
-        { id: 'team', title: 'Equipo', desc: 'Dueños y comensales que te ayudan con los pedidos.', render: () => <TeamManager /> },
+        { id: 'team', title: 'Equipo', desc: 'Cajeros, camareros, cocina y dueños, con las estrellas de cada camarero.', render: () => <TeamManager /> },
+        { id: 'invoicing', title: 'Facturación', desc: 'Razón social, RNC y nota al pie de tus facturas.', render: () => <InvoiceSettingsForm /> },
+        { id: 'printers', title: 'Impresoras', desc: 'Impresoras por internet para comandas, prefacturas y facturas.', render: () => <PrinterManager /> },
         { id: 'contact', title: 'Contacto y horario', desc: 'Dirección, teléfono, WhatsApp, redes y horario.', render: () => <BrandSettingsForm group="contact" /> },
         { id: 'money', title: 'Moneda y gift cards', desc: 'Símbolo de la moneda y prefijo de los códigos de gift card.', render: () => <BrandSettingsForm group="money" /> },
       ],

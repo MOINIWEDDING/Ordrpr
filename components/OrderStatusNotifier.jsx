@@ -15,7 +15,7 @@ const GUEST_POLL_MS = 8000;
 // (Cuenta → Avisos de pedidos). Con cuenta, llega en tiempo real; como invitado, se consulta cada pocos
 // segundos mientras haya un pedido sin entregar.
 export default function OrderStatusNotifier() {
-  const { profile, isStaff, isComensal } = useAuth();
+  const { profile, canManageOrders } = useAuth();
   const { showToast } = useToast();
   const { settings } = useSettings();
 
@@ -33,11 +33,11 @@ export default function OrderStatusNotifier() {
   }
 
   // Si ya activó las notificaciones, deja este aparato ligado a la cuenta con la que está (o como invitado)
-  useEffect(() => { if (!isStaff && !isComensal) syncPush(profile); }, [profile, isStaff, isComensal]);
+  useEffect(() => { if (!canManageOrders) syncPush(profile); }, [profile, canManageOrders]);
 
   // Cliente con cuenta: tiempo real
   useEffect(() => {
-    if (!profile || isStaff || isComensal || !BARRO_CONFIGURED) return undefined;
+    if (!profile || canManageOrders || !BARRO_CONFIGURED) return undefined;
     const channel = sb
       .channel(`my-order-status-${profile.id}`)
       .on('postgres_changes', {
@@ -50,7 +50,7 @@ export default function OrderStatusNotifier() {
       .subscribe();
     return () => { sb.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, isStaff, isComensal]);
+  }, [profile, canManageOrders]);
 
   // Invitado: consulta periódica de sus pedidos sin entregar
   useEffect(() => {

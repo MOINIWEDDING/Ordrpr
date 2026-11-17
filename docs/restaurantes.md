@@ -138,6 +138,21 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 6. **Redeploy.** En **Promociones → Pase de sellos** debe decir "Google Wallet conectado".
 7. Mientras Google no apruebe tu cuenta de emisor, solo los correos que agregues como **usuarios de prueba** en la consola pueden guardar el pase. Cuando todo funcione, pide la aprobación (**Solicitar acceso de publicación**) en la misma consola.
 
+## Punto de venta: puesta en marcha en un restaurante
+
+1. **Equipo:** en **Cuenta → Tu negocio → Equipo**, agrega a cada persona con su correo y su rol:
+   - **Cajero:** caja, cuentas, cobros, facturas y órdenes.
+   - **Camarero:** sus mesas y la carta para tomar pedidos.
+   - **Cocina:** la pantalla de comandas.
+   - **Dueño:** todo.
+2. **Mesas y QR:** en **Sucursales y mesas**, crea las mesas y toca **Códigos QR de las mesas** para imprimirlos. Cada QR abre la cuenta de su mesa.
+3. **Facturación:** en **Facturación**, pon la razón social y el RNC que salen en las facturas.
+4. **Productos:** en cada producto, agrega los **ingredientes** (los ven los camareros) y si se prepara en **cocina** o **bar**. Las categorías también tienen estación.
+5. **Impresoras (prueba):** en **Impresoras**, agrega una impresora:
+   - **Virtual:** se ve en el navegador, sin equipo; ideal para probar.
+   - **Star (CloudPRNT)** o **Epson (Server Direct Print):** copia la dirección que aparece y pégala en la configuración de la impresora. La impresora la consulta sola cada pocos segundos.
+   - Las impresoras de cocina y bar reciben las comandas solas. La de caja recibe prefacturas y facturas cuando se envían desde Caja.
+
 ## Lo que hay en `supabase/migrations/`
 
 | Archivo | Qué hace |
@@ -157,5 +172,6 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 | `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
+| `20261118000000_punto_de_venta.sql` | Punto de venta: roles de cajero, camarero y cocina; cuentas abiertas por mesa; facturas; estrellas a los camareros; impresoras por internet; ingredientes, estación y agotado en los productos. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

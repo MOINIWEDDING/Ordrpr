@@ -15,7 +15,7 @@ import Reveal from './Reveal';
 export default function CategoryCarousels({ limit = null, showAddCategory = true }) {
   const { isStaff } = useAuth();
   const { categories, reload: reloadCategories } = useCategories();
-  const { items, reload: reloadItems } = useMenuItems();
+  const { items, reload: reloadItems } = useMenuItems({ hideUnavailable: !isStaff });
 
   const [editingItem, setEditingItem] = useState(null); // {item, defaultCategory} | null
   const [editingCategory, setEditingCategory] = useState(null); // category | 'new' | null
