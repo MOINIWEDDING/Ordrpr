@@ -799,3 +799,85 @@ grant execute on function public.tab_open(uuid, text, integer), public.tab_get(u
   public.print_ack(text, uuid, boolean, text), public.is_pos_staff() to anon, authenticated;
 grant execute on function public.tab_staff_update(uuid, text, text), public.tab_close(uuid, jsonb, numeric, numeric, jsonb, text),
   public.invoice_set_fiscal(uuid, jsonb), public.set_item_available(uuid, boolean), public.pos_waiters() to authenticated;
+
+-- ---------- QR fijos de las mesas ----------
+-- Cada mesa tiene un código corto permanente (/q/<código>) que redirige a su enlace. El QR impreso
+-- lleva el código, así que nunca cambia: si la mesa se renombra, se borra o cambia el enlace, el
+-- código se puede volver a apuntar a otra mesa sin reimprimir.
+create table if not exists public.table_links (
+  code text primary key check (code ~ '^[a-z0-9]{6}$'),
+  table_id uuid unique references public.dining_tables(id) on delete set null,
+  label text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.new_table_link_code()
+returns text
+language plpgsql
+set search_path to 'public'
+as $function$
+declare
+  abc text := 'abcdefghjkmnpqrstuvwxyz23456789';
+  c text;
+begin
+  loop
+    c := '';
+    for i in 1..6 loop c := c || substr(abc, 1 + floor(random() * length(abc))::int, 1); end loop;
+    exit when not exists (select 1 from public.table_links where code = c);
+  end loop;
+  return c;
+end;
+$function$;
+
+create or replace function public.table_link_sync()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.table_links (code, table_id, label) values (public.new_table_link_code(), new.id, new.label);
+  elsif new.label is distinct from old.label then
+    update public.table_links set label = new.label where table_id = new.id;
+  end if;
+  return new;
+end;
+$function$;
+drop trigger if exists dining_tables_link on public.dining_tables;
+create trigger dining_tables_link after insert or update of label on public.dining_tables
+  for each row execute function public.table_link_sync();
+
+-- las mesas que ya existían reciben su código
+insert into public.table_links (code, table_id, label)
+select public.new_table_link_code(), d.id, d.label from public.dining_tables d
+where not exists (select 1 from public.table_links l where l.table_id = d.id);
+
+-- Volver a apuntar un código a otra mesa (la mesa deja libre el código que tenía).
+create or replace function public.table_link_assign(code_input text, table_input uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  lbl text;
+begin
+  if not public.is_staff() then raise exception 'Solo el dueño puede mover códigos'; end if;
+  select label into lbl from public.dining_tables where id = table_input;
+  if not found then raise exception 'Mesa no encontrada'; end if;
+  update public.table_links set table_id = null where table_id = table_input and code <> code_input;
+  update public.table_links set table_id = table_input, label = lbl where code = code_input;
+  return found;
+end;
+$function$;
+
+alter table public.table_links enable row level security;
+drop policy if exists "Anyone can read table links" on public.table_links;
+create policy "Anyone can read table links" on public.table_links for select using (true);
+drop policy if exists "Owner deletes table links" on public.table_links;
+create policy "Owner deletes table links" on public.table_links for delete using (public.is_staff());
+
+revoke execute on function public.table_link_sync(), public.new_table_link_code() from public, anon, authenticated;
+revoke execute on function public.table_link_assign(text, uuid) from public, anon;
+grant execute on function public.table_link_assign(text, uuid) to authenticated;
