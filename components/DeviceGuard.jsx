@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getStaffDevice, HOME_FOR_ROLE } from '@/lib/staffDevice';
 import { navForRole } from '@/lib/roleNav';
 
-const OWNER_IDLE_MS = 2 * 60 * 1000;
+const OWNER_IDLE_MS = 60 * 1000;
 // páginas que se pueden ver en un aparato del local sin sesión (la pantalla del equipo y lo que se imprime)
 const isFree = (p) => p === '/equipo' || p.startsWith('/factura/') || p.startsWith('/impresora/');
 
@@ -35,7 +35,7 @@ export default function DeviceGuard() {
     if (!ok) router.replace(HOME_FOR_ROLE[userRole] || '/equipo');
   }, [device, authReady, profile, userRole, pathname, router]);
 
-  // la sesión del dueño en un aparato del local se cierra sola tras 2 minutos sin uso
+  // la sesión del dueño en un aparato del local se cierra sola tras 1 minuto sin uso
   const ownerHere = Boolean(device && profile && userRole === 'staff');
   useEffect(() => {
     if (!ownerHere) return undefined;
@@ -55,7 +55,7 @@ export default function DeviceGuard() {
   const secs = Math.max(0, Math.ceil(left / 1000));
   return (
     <div className="device-owner-bar" role="status">
-      <span><b>Sesión del dueño</b> en un aparato del local · se cierra sola {secs <= 60 ? `en ${secs} s` : 'si no la usas'}</span>
+      <span><b>Sesión del dueño</b> en un aparato del local · se cierra sola en {secs} s si no la usas</span>
       <button type="button" onClick={logout}>Salir</button>
     </div>
   );

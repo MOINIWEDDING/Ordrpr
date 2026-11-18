@@ -185,11 +185,6 @@ export default function EquipoPage() {
               ))}
             </ul>
           )}
-          {!profile && (
-            <div className="crew-foot">
-              <button type="button" onClick={() => openAuth('login', 'staff')}>Soy el dueño</button>
-            </div>
-          )}
           {isStaff && (
             <div className="crew-foot">
               <span>Sesión del dueño</span>
