@@ -43,7 +43,7 @@ export function navForRole(role, { showNosotros = true, loyalty = false, activeT
     return {
       tabs: [T.caja, T.ordenes, T.menu, T.estadisticas],
       more: [T.inicio, T.cocina, T.mesas, T.contabilidad, T.promos, T.usuarios],
-      desktop: [T.inicio, T.menu, T.caja, T.ordenes, T.cocina, T.estadisticas, T.promos, T.usuarios],
+      desktop: [T.inicio, T.menu, T.caja, T.ordenes, T.cocina, T.mesas, T.estadisticas, T.contabilidad, T.promos, T.usuarios],
     };
   }
   if (role === 'cajero') return { tabs: [T.caja, T.ordenes, T.cocina, T.menu], more: [], desktop: [T.caja, T.ordenes, T.cocina, T.menu] };
