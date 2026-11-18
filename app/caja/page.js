@@ -286,6 +286,15 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
               </div>
             )}
             {detail.status === 'bill' && <div className="pos-call is-bill"><span>Pidieron la cuenta</span></div>}
+            {!cashier && detail.orders.length === 0 && (
+              <div className="pos-empty-tab">
+                <span>Esta mesa no ha pedido nada.</span>
+                <button type="button" onClick={async () => {
+                  if (!window.confirm(`¿Cerrar ${table.label}? No tiene pedidos, así que se libera sin cobrar.`)) return;
+                  if (await staff('cancel')) { showToast(`${table.label} quedó libre`); onClose(); }
+                }}>Cerrar mesa</button>
+              </div>
+            )}
             <StaffPayments tab={detail} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
 
             <div className="pos-orders">
@@ -320,7 +329,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
             {!cashier && <div className="pos-more">
               <button type="button" onClick={() => setMode('move')}>Cambiar de mesa</button>
               {detail.status === 'bill' && <button type="button" onClick={() => staff('reopen')}>Seguir pidiendo</button>}
-              {detail.orders.length === 0 && <button type="button" onClick={async () => { if (await staff('cancel')) onClose(); }}>Cancelar cuenta</button>}
+
             </div>}
           </>
         )}

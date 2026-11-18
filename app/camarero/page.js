@@ -210,7 +210,15 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
 
   async function staff(action) {
     const { error } = await sb.rpc('tab_staff_update', { tab_input: tab.id, action_input: action, value_input: null });
-    if (error) showToast(error.message); else { onChanged(); loadDetail(); }
+    if (error) { showToast(error.message); return false; }
+    onChanged(); loadDetail();
+    return true;
+  }
+
+  // la mesa se abrió pero no pidieron nada: se libera sin cobrar
+  async function closeEmpty() {
+    if (!window.confirm(`¿Cerrar ${table.label}? No tiene pedidos, así que se libera sin cobrar.`)) return;
+    if (await staff('cancel')) { showToast(`${table.label} quedó libre`); onClose(); }
   }
 
   async function printBill() {
@@ -259,6 +267,12 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
               </div>
             )}
             <StaffPayments tab={detail} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
+            {detail.orders.length === 0 && (
+              <div className="pos-empty-tab">
+                <span>Esta mesa no ha pedido nada.</span>
+                <button type="button" onClick={closeEmpty}>Cerrar mesa</button>
+              </div>
+            )}
             <button type="button" className="waiter-summary" onClick={() => setShowOrders((v) => !v)}>
               <span>{detail.orders.length} {detail.orders.length === 1 ? 'pedido' : 'pedidos'} · {money(t.total)}</span>
               <span>{showOrders ? 'Ocultar' : 'Ver lo pedido'}</span>

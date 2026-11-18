@@ -2931,3 +2931,5 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
   .pdx-foot{padding:16px 28px 20px;}
 }
 @media (prefers-reduced-motion: reduce){ .pdx-choice, .pdx-mark{transition:none;} }
+.pos-empty-tab{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; padding:10px 10px 10px 14px; border-radius:14px; background:var(--cream-2); font-size:14px; font-weight:600; color:var(--ink-soft);}
+.pos-empty-tab button{flex-shrink:0; height:38px; padding:0 16px; border:none; border-radius:100px; background:var(--ink); color:var(--cream); font-family:var(--font-ui); font-size:13.5px; font-weight:800; cursor:pointer;}
