@@ -17,11 +17,11 @@ import BranchSwitcher from '@/components/BranchSwitcher';
 import { Chevron, ownerSections } from '@/components/OwnerSections';
 
 export default function CuentaPage() {
-  const { profile, isStaff, canManageOrders, userRole, logout } = useAuth();
+  const { profile, isStaff, canManageOrders, isAccountant, userRole, logout } = useAuth();
 
   if (!profile) return <AuthGate />;
   if (isStaff) return <StaffView profile={profile} logout={logout} />;
-  if (canManageOrders) return <TeamView profile={profile} role={userRole} logout={logout} />;
+  if (canManageOrders || isAccountant) return <TeamView profile={profile} role={userRole} logout={logout} />;
   return <ClientView profile={profile} logout={logout} />;
 }
 
@@ -62,6 +62,9 @@ const TEAM_ROLES = {
   cocina: { label: 'Cocina', links: [
     { href: '/cocina', title: 'Comandas', sub: 'Los pedidos por preparar, por estación.' },
     { href: '/ordenes', title: 'Órdenes', sub: 'Todos los pedidos de la sucursal.' },
+  ] },
+  contador: { label: 'Contador', links: [
+    { href: '/contabilidad', title: 'Contabilidad', sub: 'Ventas, impuestos, facturas y reportes en PDF o CSV.' },
   ] },
   comensal: { label: 'Comensal', links: [
     { href: '/ordenes', title: 'Órdenes', sub: 'Ve y actualiza los pedidos de la sucursal que tengas activa.' },

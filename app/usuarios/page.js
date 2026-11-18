@@ -64,7 +64,7 @@ export default function UsuariosPage() {
     if (!BARRO_CONFIGURED) { setLoading(false); return; }
     sb.rpc('owner_users').then(({ data, error: err }) => {
       if (err) setError(/owner_users|schema cache|does not exist/i.test(err.message || '') ? 'Falta actualizar la base de datos de este restaurante para ver los usuarios.' : err.message);
-      else setUsers((data || []).filter((u) => u.role === 'cliente'));
+      else setUsers((data || []).filter((u) => u.role === 'cliente' && !/@equipo\.invalid$/.test(u.email || ''))); // sin las cuentas internas del equipo con PIN
       setLoading(false);
     });
   }, [isStaff]);

@@ -1,5 +1,5 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -18,25 +18,57 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { newOrderId, rememberGuestOrder, getGuestPushRef } from '@/lib/guestOrders';
 import EarlyBirdResult from './EarlyBirdResult';
 import { useLoyaltySettings } from '@/lib/loyalty';
-import { useActiveTab } from '@/lib/activeTab';
+import { useActiveTab, setActiveTab } from '@/lib/activeTab';
 import Link from 'next/link';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
 
 const PAYMENT_METHODS = [
-  { id: 'gift_card', label: 'Gift Card', ready: true },
-  { id: 'efectivo', label: 'Efectivo', ready: true },
   { id: 'tarjeta', label: 'Tarjeta', ready: true },
+  { id: 'efectivo', label: 'Efectivo', ready: true },
+  { id: 'gift_card', label: 'Gift card', ready: true },
 ];
 
 export default function CartDrawer() {
-  const { lines, setQty, setNotes, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
+  const { lines, setQty, setNotes, setPerson, removeItem, clear, tableNumber, setTableNumber, customerName, setCustomerName, drawerOpen, closeDrawer } = useCart();
   const { profile, refreshProfile } = useAuth();
   const { loyalty } = useLoyaltySettings();
   // con una cuenta abierta en la mesa, el carrito solo manda el pedido a la cocina (se paga al cerrar la cuenta)
   const activeTab = useActiveTab();
   const [sentToTab, setSentToTab] = useState(false);
-  useEffect(() => { if (!drawerOpen) setSentToTab(false); }, [drawerOpen]);
+  const [payLater, setPayLater] = useState(true);
+  const [companions, setCompanions] = useState([]);
+  const [newCompanion, setNewCompanion] = useState('');
+  const [tabInfo, setTabInfo] = useState(null); // la cuenta tal como está (quiénes ya pidieron)
+  const [joinTab, setJoinTab] = useState(null); // la mesa ya tiene cuenta: { tab_id, opened_name }
+  const [joinCode, setJoinCode] = useState('');
+  const [payMethod, setPayMethod] = useState('tarjeta');
+  const [noteKey, setNoteKey] = useState(null); // la línea cuya nota se está escribiendo
+  const [showPromo, setShowPromo] = useState(false);
+  const [step, setStep] = useState('items');
+  const [dir, setDir] = useState(1);
+  // en pantallas anchas el carrito entra por la derecha como panel lateral
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 900px)');
+    const on = () => setIsWide(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  useEffect(() => { if (!drawerOpen) { setSentToTab(false); setStep('items'); setNoteKey(null); } }, [drawerOpen]);
+  useEffect(() => { if (!lines.length) setStep('items'); }, [lines.length]);
+  useEffect(() => {
+    if (!drawerOpen || !activeTab || !BARRO_CONFIGURED) { setTabInfo(null); return; }
+    let live = true;
+    sb.rpc('tab_get', { tab_input: activeTab.id, code_input: activeTab.code }).then(({ data, error }) => {
+      if (!live || error) return;
+      // la cuenta ya se cerró (o ya no existe): el carrito vuelve a lo normal
+      if (!data || data.status === 'closed' || data.status === 'cancelled') { setActiveTab(null); return; }
+      setTabInfo(data);
+    });
+    return () => { live = false; };
+  }, [drawerOpen, activeTab]);
   const { branch, branchInfo } = useBranch();
   const { tables } = useTables(branch);
   const { charges: taxCharges, totalPercent: taxPercent } = useTaxSettings(branch);
@@ -66,6 +98,12 @@ export default function CartDrawer() {
   const effectiveAge = profile ? profile.age : guestInfo.age;
 
   const effectiveName = customerName || (profile ? profile.name : '') || '';
+  // Cuenta abierta: si ya hay una en este aparato, o si come aquí en una mesa real y elige pagar al final.
+  const realTables = BARRO_CONFIGURED && tables.length > 0 && !String(tables[0].id).startsWith('demo-');
+  const tabFlow = !!activeTab || (orderType === 'dine_in' && realTables && payLater);
+  const tabPeopleNames = tabInfo ? [tabInfo.opened_name, ...(tabInfo.orders || []).map((o) => o.customer_name)] : [];
+  const people = [...new Set([effectiveName.trim(), ...companions, ...tabPeopleNames].map((n) => (n || '').trim()).filter(Boolean))];
+  const personOf = (l) => (l.person && people.includes(l.person) ? l.person : effectiveName.trim());
   const viewPromo = promoDiscount(appliedPromo, lines.map((l) => ({ ...l, price: linePriceFor(l, currency) })), viewSubtotal);
   const taxBase = viewSubtotal - viewPromo.amount;
   const taxAmount = Math.round((taxBase * taxPercent) / 100);
@@ -90,24 +128,74 @@ export default function CartDrawer() {
     setPromoMsg('');
   }
 
+  function addCompanion() {
+    const n = newCompanion.trim().slice(0, 30);
+    if (n && !people.includes(n)) setCompanions((c) => [...c, n]);
+    setNewCompanion('');
+  }
+
+  async function shareCode() {
+    if (!activeTab) return;
+    const url = `${window.location.origin}/mesa/${activeTab.table_id}`;
+    const text = `Únete a nuestra cuenta (${activeTab.table_label}). Código: ${activeTab.code}`;
+    try {
+      if (navigator.share) { await navigator.share({ text, url }); return; }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      showToast('Copiado: compártelo con tu mesa');
+    } catch (e) { /* cancelado */ }
+  }
+
+  // Abre la cuenta de la mesa (o se une con el código) y manda un pedido por cada persona.
   async function handleSendToTab() {
-    if (!lines.length || !activeTab) return;
+    if (!lines.length) return;
     if (!effectiveName.trim()) { setPlaceError('Escribe tu nombre antes de continuar.'); return; }
     if (!BARRO_CONFIGURED) { setPlaceError('Conecta Supabase para enviar pedidos.'); return; }
     setPlaceError('');
     setPlacing(true);
-    // la cuenta se cobra en la moneda principal, con los precios normales
-    const items = lines.map((l) => ({ id: l.id, name: l.name, price: linePriceFor(l, currencies[0]), qty: l.qty, notes: l.notes || '', options: l.options || [] }));
-    const subtotal = items.reduce((s, l) => s + l.qty * l.price, 0);
-    const { error } = await sb.rpc('tab_add_order', {
-      tab_input: activeTab.id,
-      code_input: activeTab.code,
-      order_input: { customer_name: effectiveName.trim(), items, subtotal, tax_amount: Math.round((subtotal * taxPercent) / 100), push_ref: profile ? null : getGuestPushRef() },
-    });
-    setPlacing(false);
-    if (error) { setPlaceError(/cerrada/i.test(error.message) ? 'Esta cuenta ya está cerrada. Abre una nueva desde el QR de tu mesa.' : `No se pudo enviar: ${error.message}`); return; }
-    clear();
-    setSentToTab(true);
+    try {
+      let tab = activeTab;
+      if (!tab) {
+        if (joinTab) {
+          const { data } = await sb.rpc('tab_get', { tab_input: joinTab.tab_id, code_input: joinCode.trim() });
+          if (!data) throw new Error('Ese código no es el de esta mesa.');
+          tab = data;
+        } else {
+          const table = tables.find((t) => t.label === tableNumber);
+          if (!table) throw new Error('Elige tu mesa antes de continuar.');
+          const { data, error } = await sb.rpc('tab_open', { table_input: table.id, name_input: effectiveName.trim(), guests_input: partySize });
+          if (error) throw error;
+          if (data && data.reason === 'exists' && data.tab_id) { setJoinTab({ tab_id: data.tab_id, opened_name: data.opened_name }); return; }
+          if (!data || !data.ok) throw new Error('No se pudo abrir la cuenta. Intenta de nuevo.');
+          tab = data.tab;
+        }
+        setActiveTab(tab);
+      }
+      // la cuenta se cobra en la moneda principal, con los precios normales
+      const groups = new Map();
+      lines.forEach((l) => { const who = personOf(l); if (!groups.has(who)) groups.set(who, []); groups.get(who).push(l); });
+      for (const [who, group] of groups) {
+        const items = group.map((l) => ({ id: l.id, name: l.name, price: linePriceFor(l, currencies[0]), qty: l.qty, notes: l.notes || '', options: l.options || [] }));
+        const subtotal = items.reduce((sum, l) => sum + l.qty * l.price, 0);
+        const { error } = await sb.rpc('tab_add_order', {
+          tab_input: tab.id,
+          code_input: tab.code,
+          order_input: { customer_name: who, items, subtotal, tax_amount: Math.round((subtotal * taxPercent) / 100), push_ref: profile ? null : getGuestPushRef() },
+        });
+        if (error) throw error;
+        group.forEach((l) => removeItem(l.lineKey)); // lo enviado ya no se repite si algo falla después
+      }
+      clear();
+      setJoinTab(null);
+      setJoinCode('');
+      setSentToTab(true);
+    } catch (e) {
+      const msg = e.message || '';
+      setPlaceError(/cerrada/i.test(msg) ? 'Esta cuenta ya está cerrada. Abre una nueva desde el QR de tu mesa.'
+        : /tab_open|tab_add_order|schema cache/i.test(msg) ? 'Las cuentas abiertas todavía no están disponibles en este restaurante.'
+        : msg);
+    } finally {
+      setPlacing(false);
+    }
   }
 
   async function handlePay(method) {
@@ -272,21 +360,70 @@ export default function CartDrawer() {
     closeDrawer();
   }
 
+  // Pasos del carrito: cada pantalla pide una sola cosa. Con cuenta abierta: productos → quiénes.
+  // Si no: productos → cómo lo quieres → (mesa) → quiénes (cuenta nueva) o pago.
+  const steps = activeTab
+    ? ['items', 'people']
+    : ['items', 'how', ...(orderType === 'dine_in' ? ['table'] : []), tabFlow ? 'people' : 'pay'];
+  const stepIdx = Math.max(0, steps.indexOf(step));
+  const current = steps[stepIdx];
+  const isLast = stepIdx === steps.length - 1;
+  function goTo(next, d = 1) { setPlaceError(''); setDir(d); setStep(next); }
+  function back() { if (stepIdx > 0) goTo(steps[stepIdx - 1], -1); }
+  function chooseHow(type) {
+    setOrderType(type);
+    goTo(type === 'dine_in' ? 'table' : 'pay');
+  }
+  function next() {
+    if (current === 'table' && !tableNumber) { setPlaceError('Toca tu mesa para seguir.'); return; }
+    if (!isLast) { goTo(steps[stepIdx + 1]); return; }
+    if (tabFlow) handleSendToTab(); else handlePay(payMethod);
+  }
+
+  const STEP_TITLE = {
+    items: 'Tu pedido',
+    how: '¿Cómo lo quieres?',
+    table: '¿En qué mesa estás?',
+    people: activeTab ? '¿Para quién es?' : '¿Quiénes están?',
+    pay: '¿Cómo pagas?',
+  };
+  const itemCount = lines.reduce((n, l) => n + l.qty, 0);
+  const tabTotal = lines.reduce((sum, l) => sum + l.qty * linePriceFor(l, currencies[0]), 0);
+  const ctaLabel = current === 'items' && !isLast ? 'Continuar'
+    : !isLast ? 'Continuar'
+    : tabFlow ? (activeTab ? 'Enviar a la cocina' : joinTab ? 'Unirme y enviar' : 'Abrir cuenta y enviar')
+    : payMethod === 'gift_card' ? 'Pagar con gift card' : 'Confirmar pedido';
+  const balance = profile ? Number(profile.gift_card_balance || 0) : 0;
+  const done = sentToTab || success;
+  const reduce = useReducedMotion();
+  const slide = {
+    enter: (d) => ({ opacity: 0, x: reduce ? 0 : d * 44 }),
+    center: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 0.61, 0.36, 1], staggerChildren: 0.045, delayChildren: 0.05 } },
+    exit: (d) => ({ opacity: 0, x: reduce ? 0 : d * -44, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }),
+  };
+  const rise = { enter: { opacity: 0, y: reduce ? 0 : 12 }, center: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 0.61, 0.36, 1] } }, exit: { opacity: 1 } };
+
+  const nameField = (
+    <TextField id="cartName" label="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={60} autoComplete="given-name" />
+  );
+
   return (
     <AnimatePresence>
       {drawerOpen && (
         <motion.div
-          className="overlay show"
-          style={{ alignItems: 'flex-end' }}
+          className="overlay show cart-overlay"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         >
           <motion.div
-            className="modal cart-modal"
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+            className={`cart-sheet${!done && lines.length ? ' is-steps' : ''}`}
+            role="dialog" aria-modal="true" aria-label="Tu pedido"
+            initial={isWide ? { x: '110%' } : { y: '100%' }} animate={isWide ? { x: 0 } : { y: 0 }} exit={isWide ? { x: '110%' } : { y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           >
-            {sentToTab ? (
+            {done ? (
+              <div className="cart-scroll cart-done">
+                {sentToTab ? (
               <div className="order-success">
                 <motion.div className="order-check" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.05 }}>
                   <motion.svg viewBox="0 0 24 24" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 0.25 }}><path d="M5 13l4 4L19 7" /></motion.svg>
@@ -360,200 +497,288 @@ export default function CartDrawer() {
                   </motion.div>
                 )}
               </div>
-              )
+              )) : null}
+              </div>
             ) : (
               <>
-                <div className="modal-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 60 }}>
-                  <h3 style={{ margin: 0 }}>Carrito</h3>
-                  {lines.length > 0 && (
-                    <button type="button" className="icon-btn" aria-label="Vaciar carrito" onClick={clear}>
-                      <svg className="icon" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>
+                <div className="cart-head">
+                  {stepIdx > 0 ? (
+                    <button type="button" className="cart-x cart-back" onClick={back} aria-label="Atrás">
+                      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
                     </button>
-                  )}
+                  ) : <span className="cart-head-gap" />}
+                  <div className="cart-head-title">
+                    <p className="eyebrow">{lines.length === 0 ? (branchInfo ? branchInfo.full : 'Tu pedido') : activeTab ? `${activeTab.table_label} · paso ${stepIdx + 1} de ${steps.length}` : `Paso ${stepIdx + 1} de ${steps.length}`}</p>
+                    <h3>{STEP_TITLE[current]}{current === 'items' && itemCount > 0 && <span className="cart-count">{itemCount}</span>}</h3>
+                  </div>
+                  <button type="button" className="cart-x" onClick={handleClose} aria-label="Cerrar">
+                    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                  </button>
                 </div>
-                <button type="button" className="modal-close" onClick={handleClose} aria-label="Cerrar">
-                  <svg className="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                </button>
+                {lines.length > 0 && (
+                  <div className="cart-progress" aria-hidden="true">
+                    {steps.map((st, i) => <span key={st} className={i <= stepIdx ? 'on' : ''} />)}
+                  </div>
+                )}
 
-                <div className="modal-body">
-                  {lines.length === 0 ? (
-                    <p className="empty-note">Tu carrito está vacío. Agrega algo desde el menú.</p>
-                  ) : (
-                    <>
-                      <div className="cart-lines">
-                        {lines.map((l) => (
-                          <div className="cart-line-block" key={l.lineKey}>
-                            <div className="cart-line">
-                              <div className="cart-line-photo">
-                                {l.image_url ? <img src={l.image_url} alt={l.name} /> : null}
-                              </div>
-                              <div className="cart-line-body">
-                                <h4>{l.name}</h4>
-                                {l.options && l.options.length > 0 && (
-                                  <span className="cart-line-options">{describeOptions(l.options)}</span>
+                {lines.length === 0 ? (
+                  <div className="cart-scroll cart-empty">
+                    <span className="cart-empty-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M5 7h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 7Z" /><path d="M9 7V6a3 3 0 0 1 6 0v1" /></svg>
+                    </span>
+                    <h4>Todavía no hay nada aquí</h4>
+                    <p>Lo que agregues desde el menú aparece en este pedido.</p>
+                    <Link href="/menu" className="btn btn-amber" onClick={closeDrawer}>Ver el menú</Link>
+                  </div>
+                ) : (
+                  <>
+                    <div className="cart-stage">
+                      <AnimatePresence mode="wait" custom={dir} initial={false}>
+                        <motion.div key={current} className="cart-scroll" custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
+
+                          {current === 'items' && (
+                            <ul className="cart-items">
+                              {lines.map((l) => {
+                                const unit = tabFlow ? linePriceFor(l, currencies[0]) : linePriceFor(l, currency);
+                                const fmt = tabFlow ? money : inCurrency;
+                                const noteOpen = noteKey === l.lineKey;
+                                return (
+                                  <motion.li key={l.lineKey} className="ci" variants={rise}>
+                                    <div className={`ci-thumb${l.image_url ? '' : ' is-empty'}`} aria-hidden="true">
+                                      {l.image_url ? <img src={l.image_url} alt="" /> : <span>{(l.name || '?').trim().charAt(0)}</span>}
+                                    </div>
+                                    <div className="ci-main">
+                                      <div className="ci-top">
+                                        <h4>{l.name}</h4>
+                                        <b className="ci-price">{fmt(unit * l.qty)}</b>
+                                      </div>
+                                      {l.options && l.options.length > 0 && <p className="ci-opts">{describeOptions(l.options)}</p>}
+                                      {l.qty > 1 && <p className="ci-each">{fmt(unit)} c/u</p>}
+                                      {noteOpen ? (
+                                        <TextField
+                                          id={`note-${l.lineKey}`} label="Nota para la cocina" small autoFocus maxLength={140}
+                                          value={l.notes || ''}
+                                          onChange={(e) => setNotes(l.lineKey, e.target.value)}
+                                          onBlur={() => setNoteKey(null)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') setNoteKey(null); }}
+                                        />
+                                      ) : l.notes ? (
+                                        <button type="button" className="ci-note" onClick={() => setNoteKey(l.lineKey)}>“{l.notes}”</button>
+                                      ) : null}
+                                      <div className="ci-bottom">
+                                        <div className="ci-step">
+                                          <button type="button" onClick={() => setQty(l.lineKey, l.qty - 1)} aria-label={l.qty === 1 ? `Quitar ${l.name}` : 'Uno menos'}>
+                                            {l.qty === 1
+                                              ? <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>
+                                              : <svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg>}
+                                          </button>
+                                          <span aria-live="polite">{l.qty}</span>
+                                          <button type="button" onClick={() => setQty(l.lineKey, l.qty + 1)} aria-label="Uno más">
+                                            <svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" /></svg>
+                                          </button>
+                                        </div>
+                                        {!noteOpen && !l.notes && <button type="button" className="ci-link" onClick={() => setNoteKey(l.lineKey)}>Nota</button>}
+                                      </div>
+                                    </div>
+                                  </motion.li>
+                                );
+                              })}
+                              <motion.li className="ci-clear" variants={rise}><button type="button" className="ci-link" onClick={clear}>Vaciar el pedido</button></motion.li>
+                            </ul>
+                          )}
+
+                          {current === 'how' && (
+                            <div className="cart-choices">
+                              <motion.button variants={rise} type="button" className={`cart-choice${orderType === 'dine_in' ? ' on' : ''}`} onClick={() => chooseHow('dine_in')}>
+                                <span className="cart-choice-icon"><svg viewBox="0 0 24 24"><path d="M3 10h18M6 10v9M18 10v9M8 10V6h8v4" /></svg></span>
+                                <b>Comer aquí</b>
+                                <svg className="cart-choice-go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                              </motion.button>
+                              <motion.button variants={rise} type="button" className={`cart-choice${orderType === 'pickup' ? ' on' : ''}`} onClick={() => chooseHow('pickup')}>
+                                <span className="cart-choice-icon"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8Z" /><path d="M9 8a3 3 0 0 1 6 0" /></svg></span>
+                                <b>Para llevar</b>
+                                <svg className="cart-choice-go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                              </motion.button>
+                            </div>
+                          )}
+
+                          {current === 'table' && (
+                            <>
+                              <motion.div variants={rise} className="cart-tables" role="radiogroup" aria-label="Mesa">
+                                {tables.map((t) => (
+                                  <button key={t.id} type="button" role="radio" aria-checked={tableNumber === t.label}
+                                    className={`cart-table${tableNumber === t.label ? ' on' : ''}`}
+                                    onClick={() => { setTableNumber(t.label); setJoinTab(null); setJoinCode(''); setPlaceError(''); }}>
+                                    <b>{t.label}</b>
+                                    {tableNumber === t.label && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
+                                  </button>
+                                ))}
+                              </motion.div>
+                              <motion.div variants={rise} className="cart-row">
+                                <span className="cart-row-label">Personas</span>
+                                <div className="ci-step is-big">
+                                  <button type="button" onClick={() => setPartySize((n) => Math.max(1, n - 1))} aria-label="Menos"><svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg></button>
+                                  <span>{partySize}</span>
+                                  <button type="button" onClick={() => setPartySize((n) => Math.min(20, n + 1))} aria-label="Más"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" /></svg></button>
+                                </div>
+                              </motion.div>
+                              {realTables && (
+                                <motion.div variants={rise} className="cart-row is-col">
+                                  <span className="cart-row-label">¿Cuándo pagas?</span>
+                                  <div className="cart-seg" role="radiogroup" aria-label="Cuándo pagas">
+                                    <button type="button" role="radio" aria-checked={payLater} className={payLater ? 'on' : ''} onClick={() => setPayLater(true)}>Al final</button>
+                                    <button type="button" role="radio" aria-checked={!payLater} className={!payLater ? 'on' : ''} onClick={() => { setPayLater(false); setJoinTab(null); }}>Ahora</button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </>
+                          )}
+
+                          {current === 'people' && (
+                            <>
+                              {activeTab && (
+                                <motion.div variants={rise} className="cart-tabcard">
+                                  <div>
+                                    <b>{activeTab.table_label}</b>
+                                    <span>Se suma a tu cuenta. Pagas al final.</span>
+                                  </div>
+                                  <button type="button" className="cart-tabcode" onClick={shareCode} aria-label="Compartir el código con la mesa">
+                                    <small>Código</small>
+                                    <b>{activeTab.code}</b>
+                                    <small>Compartir</small>
+                                  </button>
+                                </motion.div>
+                              )}
+                              {joinTab && !activeTab && (
+                                <motion.div variants={rise} className="cart-join">
+                                  <p>{tableNumber} ya tiene una cuenta abierta{joinTab.opened_name ? ` a nombre de ${joinTab.opened_name}` : ''}. Pídele el código para unirte.</p>
+                                  <input className="cart-code-input" type="text" autoCapitalize="characters" maxLength={6} placeholder="CÓDIGO" aria-label="Código de la cuenta" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+                                </motion.div>
+                              )}
+                              <motion.div variants={rise}>{nameField}</motion.div>
+                              <motion.div variants={rise} className="cart-people">
+                                {people.map((p) => (
+                                  <span key={p} className="cart-person">
+                                    {p}
+                                    {companions.includes(p) && <button type="button" onClick={() => setCompanions((c) => c.filter((x) => x !== p))} aria-label={`Quitar a ${p}`}>×</button>}
+                                  </span>
+                                ))}
+                                <span className="cart-person-add">
+                                  <input type="text" placeholder="Agregar persona" aria-label="Agregar a alguien de la mesa" maxLength={30} value={newCompanion}
+                                    onChange={(e) => setNewCompanion(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCompanion(); } }} />
+                                  <button type="button" onClick={addCompanion} disabled={!newCompanion.trim()} aria-label="Agregar">
+                                    <svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12" /></svg>
+                                  </button>
+                                </span>
+                              </motion.div>
+                              {people.length > 1 && (
+                                <motion.ul variants={rise} className="cart-assign">
+                                  {lines.map((l) => (
+                                    <li key={l.lineKey}>
+                                      <span>{l.qty > 1 ? `${l.qty}× ` : ''}{l.name}</span>
+                                      <label className="ci-for">
+                                        <select value={personOf(l)} onChange={(e) => setPerson(l.lineKey, e.target.value)} aria-label={`Para quién es ${l.name}`}>
+                                          {people.map((p) => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                      </label>
+                                    </li>
+                                  ))}
+                                </motion.ul>
+                              )}
+                            </>
+                          )}
+
+                          {current === 'pay' && (
+                            <>
+                              <motion.div variants={rise}>{nameField}</motion.div>
+                              <motion.div variants={rise} className="cart-pay" role="radiogroup" aria-label="Cómo pagas">
+                                {PAYMENT_METHODS.map((m) => (
+                                  <button key={m.id} type="button" role="radio" aria-checked={payMethod === m.id} className={payMethod === m.id ? 'on' : ''} onClick={() => setPayMethod(m.id)}>
+                                    <span>{m.label}</span>
+                                    {m.id === 'gift_card' && profile && <small>{money(balance)}</small>}
+                                  </button>
+                                ))}
+                              </motion.div>
+                              <motion.p variants={rise} className="cart-hint">{payMethod === 'gift_card' ? 'Se descuenta de tu balance al confirmar.' : 'Se cobra en el local. Aquí solo nos avisas.'}</motion.p>
+                              <motion.div variants={rise}><CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" /></motion.div>
+                              <motion.div variants={rise}>
+                                {appliedPromo ? (
+                                  <div className="promo-applied">
+                                    <span className="promo-applied-icon" aria-hidden="true">
+                                      <svg viewBox="0 0 24 24"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
+                                    </span>
+                                    <span className="promo-applied-text">
+                                      <b>{appliedPromo.code}</b>
+                                      <span>{viewPromo.missingItem ? 'Agrega el producto del código a tu pedido' : promoSummary(appliedPromo, (lines.find((l) => l.id === appliedPromo.item_id) || {}).name)}</span>
+                                    </span>
+                                    <button type="button" className="promo-applied-remove" onClick={removePromo} aria-label="Quitar código">
+                                      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                                    </button>
+                                  </div>
+                                ) : showPromo ? (
+                                  <form className="cart-promo" onSubmit={(e) => { e.preventDefault(); applyPromo(); }}>
+                                    <TextField id="cartPromo" label="Código promocional" autoFocus value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
+                                    <button type="submit" disabled={promoBusy || !promo.trim()}>{promoBusy ? '…' : 'Aplicar'}</button>
+                                  </form>
+                                ) : (
+                                  <button type="button" className="ci-link" onClick={() => setShowPromo(true)}>¿Tienes un código promocional?</button>
                                 )}
-                                <span className="cart-line-price">{inCurrency(linePriceFor(l, currency))}</span>
-                              </div>
-                              <div className="qty-stepper">
-                                <button type="button" onClick={() => setQty(l.lineKey, l.qty - 1)} aria-label="Menos">–</button>
-                                <span>{l.qty}</span>
-                                <button type="button" onClick={() => setQty(l.lineKey, l.qty + 1)} aria-label="Más">+</button>
-                              </div>
-                              <button type="button" className="cart-line-remove" onClick={() => removeItem(l.lineKey)} aria-label="Quitar">
-                                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                              </button>
-                            </div>
-                            <input
-                              type="text"
-                              className="cart-line-notes"
-                              placeholder="Alguna nota para este producto (ej. sin azúcar)…"
-                              value={l.notes || ''}
-                              onChange={(e) => setNotes(l.lineKey, e.target.value)}
-                            />
-                          </div>
-                        ))}
+                                {promoMsg && <p className="promo-msg">{promoMsg}</p>}
+                              </motion.div>
+                              <motion.div variants={rise} className="cart-break">
+                                <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
+                                {viewPromo.amount > 0 && <div className="is-discount"><span>Código {appliedPromo.code}</span><span>−{inCurrency(viewPromo.amount)}</span></div>}
+                                {taxCharges.map((c, i) => (
+                                  <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((taxBase * (Number(c.percent) || 0)) / 100))}</span></div>
+                                ))}
+                                {!currency.base && <div><span>1 {currency.symbol} = {money(currency.rate)}</span><span>Equivale a {money(total)}</span></div>}
+                              </motion.div>
+                            </>
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+
+                    <div className="cart-foot">
+                      <div className="cart-sum">
+                        <span className="cart-sum-label">
+                          {tabFlow ? 'Este pedido' : current === 'pay' ? 'Total' : 'Subtotal'}
+                          <small>{tabFlow ? 'Impuestos al cerrar la cuenta' : current === 'pay' ? `Con ${taxCharges.map((c) => c.label).join(' y ') || 'impuestos'}` : `${itemCount} ${itemCount === 1 ? 'producto' : 'productos'}`}</small>
+                        </span>
+                        <b className="cart-sum-total">{tabFlow ? money(tabTotal) : current === 'pay' ? inCurrency(total) : inCurrency(viewSubtotal)}</b>
                       </div>
-
-                      {activeTab ? (
-                        <div className="tab-checkout">
-                          <div className="tab-checkout-banner">
-                            <b>{activeTab.table_label}</b>
-                            <span>Se suma a tu cuenta abierta: pagas al final.</span>
-                          </div>
-                          <div className="field">
-                            <label htmlFor="cartNameTab">¿Para quién es?</label>
-                            <input id="cartNameTab" type="text" placeholder="Tu nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                          </div>
-                          <div className="cart-totals">
-                            <div className="cart-total-final"><span>Este pedido</span><span>{money(lines.reduce((s, l) => s + l.qty * linePriceFor(l, currencies[0]), 0))}</span></div>
-                          </div>
-                          {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-                          <button type="button" className="btn btn-amber btn-block tab-send" onClick={handleSendToTab} disabled={placing}>{placing ? 'Enviando…' : 'Enviar a la cocina'}</button>
-                          <Link href="/mi-mesa" className="tab-checkout-link" onClick={closeDrawer}>Ver mi cuenta</Link>
-                        </div>
-                      ) : (<>
-                      <div className="checkout-fields">
-                        <div className="field">
-                          <label htmlFor="cartName">Tu nombre</label>
-                          <input id="cartName" type="text" placeholder="¿A nombre de quién?" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                        </div>
-
-                        <div className="field">
-                          <label>¿Cómo lo quieres?</label>
-                          <div className="order-type-row">
-                            <button
-                              type="button"
-                              className={`order-type-btn${orderType === 'pickup' ? ' active' : ''}`}
-                              onClick={() => setOrderType('pickup')}
-                            >
-                              <svg viewBox="0 0 24 24"><path d="M20 8l-8-5-8 5v8l8 5 8-5z" /><path d="M12 3v18M4 8l8 5 8-5" /></svg>
-                              Pick up
-                            </button>
-                            <button
-                              type="button"
-                              className={`order-type-btn${orderType === 'dine_in' ? ' active' : ''}`}
-                              onClick={() => setOrderType('dine_in')}
-                            >
-                              <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>
-                              Comer aquí
-                            </button>
-                          </div>
-                        </div>
-
-                        {orderType === 'dine_in' && (
-                          <>
-                            <div className="field">
-                              <label htmlFor="cartTable">Tu mesa</label>
-                              <select id="cartTable" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)}>
-                                <option value="">Elige tu mesa…</option>
-                                {tables.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
-                              </select>
-                            </div>
-                            <div className="field">
-                              <label htmlFor="cartPartySize">¿Cuántos son en la mesa?</label>
-                              <div className="qty-stepper">
-                                <button type="button" onClick={() => setPartySize((n) => Math.max(1, n - 1))} aria-label="Menos">–</button>
-                                <span>{partySize}</span>
-                                <button type="button" onClick={() => setPartySize((n) => Math.min(20, n + 1))} aria-label="Más">+</button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      {branch && (
-                        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Pidiendo en: {branchInfo?.full}</p>
+                      {placeError && <div className="form-msg show error">{placeError}</div>}
+                      {current !== 'how' && (
+                        <button
+                          type="button" className="cart-cta"
+                          onClick={next}
+                          disabled={placing || (isLast && tabFlow && joinTab && !activeTab && joinCode.trim().length < 4)}
+                        >
+                          <span>{placing ? 'Enviando…' : ctaLabel}</span>
+                          {!placing && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
+                        </button>
                       )}
-
-                      {appliedPromo ? (
-                        <div className="promo-applied">
-                          <span className="promo-applied-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" /><circle cx="8" cy="8" r="1.6" /></svg>
-                          </span>
-                          <span className="promo-applied-text">
-                            <b>{appliedPromo.code}</b>
-                            <span>{viewPromo.missingItem ? 'Agrega el producto del código a tu pedido' : promoSummary(appliedPromo, (lines.find((l) => l.id === appliedPromo.item_id) || {}).name)}</span>
-                          </span>
-                          <button type="button" className="promo-applied-remove" onClick={removePromo} aria-label="Quitar código">
-                            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <form className="promo-row" onSubmit={(e) => { e.preventDefault(); applyPromo(); }}>
-                          <input type="text" placeholder="Código promocional" value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
-                          <button type="submit" className="btn btn-ghost btn-sm" disabled={promoBusy || !promo.trim()}>{promoBusy ? '…' : 'Aplicar'}</button>
-                        </form>
-                      )}
-                      {promoMsg && <p className="promo-msg">{promoMsg}</p>}
-
-                      <CurrencySwitcher label="Pagar en" idSuffix="cart" className="cart-currency" />
-
-                      <div className="cart-totals">
-                        <div><span>Subtotal</span><span>{inCurrency(viewSubtotal)}</span></div>
-                        {viewPromo.amount > 0 && <div className="cart-discount"><span>Código {appliedPromo.code}</span><span>−{inCurrency(viewPromo.amount)}</span></div>}
-                        {taxCharges.map((c, i) => (
-                          <div key={i}><span>{c.label} ({c.percent}%)</span><span>{inCurrency(Math.round((taxBase * (Number(c.percent) || 0)) / 100))}</span></div>
-                        ))}
-                        <div><span>Entrega</span><span>{DELIVERY === 0 ? 'En el local' : inCurrency(DELIVERY)}</span></div>
-                        <div className="cart-total-final"><span>Total</span><span>{inCurrency(total)}</span></div>
-                        {!currency.base && (
-                          <div className="cart-total-base"><span>1 {currency.symbol} = {money(currency.rate)}{currency.source === 'Banreservas' ? ' · tasa Banreservas de hoy' : ' · tasa de hoy'}</span><span>Equivale a {money(total)}</span></div>
-                        )}
-                      </div>
-
-                      {placeError && <div className="form-msg show error" style={{ marginTop: 14 }}>{placeError}</div>}
-
-                      <p className="pay-label">
-                        Elige cómo pagar
-                        {profile && <span className="muted" style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}> · tu balance de gift card: {money(profile.gift_card_balance || 0)}</span>}
-                      </p>
-                      <div className="pay-grid">
-                        {PAYMENT_METHODS.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className={`pay-btn${m.ready ? ' ready' : ''}`}
-                            disabled={placing}
-                            onClick={() => handlePay(m.id)}
-                          >
-                            {m.label}
-                            {!m.ready && <span className="pay-soon">Próximamente</span>}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-                        Efectivo y tarjeta se cobran en persona en el local — solo estás avisando cómo vas a pagar.
-                        {!currency.base && ` La gift card se descuenta en ${currencies[0].symbol}.`}
-                      </p>
-                      </>)}
-                    </>
-                  )}
-                </div>
+                      {activeTab && current === 'items' && <Link href="/mi-mesa" className="cart-foot-link" onClick={closeDrawer}>Ver mi cuenta</Link>}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// Caja de texto con la etiqueta adentro: sube cuando escribes o tocas la caja.
+function TextField({ id, label, small, value, ...rest }) {
+  return (
+    <div className={`tfield${small ? ' is-small' : ''}`}>
+      <input id={id} placeholder=" " value={value} {...rest} />
+      <label htmlFor={id}>{label}</label>
+    </div>
   );
 }
 

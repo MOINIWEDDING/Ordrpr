@@ -36,6 +36,9 @@ export function AuthProvider({ children }) {
   const isCashier = userRole === 'cajero';
   const isWaiter = userRole === 'camarero';
   const isKitchen = userRole === 'cocina';
+  const isAccountant = userRole === 'contador';
+  // el dueño y el contador ven la contabilidad
+  const canSeeAccounting = isStaff || isAccountant;
   // todo el personal ve las órdenes; caja y camareros además manejan cuentas
   const canManageOrders = isStaff || isComensal || isCashier || isWaiter || isKitchen;
   const canUsePos = isStaff || isComensal || isCashier || isWaiter;
@@ -64,11 +67,13 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await sb.auth.signOut();
     setProfile(null);
+    // en un aparato del local, al salir vuelve a la pantalla del equipo para que entre otra persona
+    try { if (window.localStorage.getItem('rp-staff-device')) window.location.href = '/equipo'; } catch (e) { /* nada */ }
   }, []);
 
   return (
     <AuthContext.Provider value={{
-      profile, authReady, userRole, isStaff, isComensal, isCashier, isWaiter, isKitchen, canManageOrders, canUsePos,
+      profile, authReady, userRole, isStaff, isComensal, isCashier, isWaiter, isKitchen, isAccountant, canSeeAccounting, canManageOrders, canUsePos,
       modalOpen, mode, role, setMode, setRole,
       openAuth, closeAuth, login, signup, logout, refreshProfile,
     }}>
