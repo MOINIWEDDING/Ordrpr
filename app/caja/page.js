@@ -19,6 +19,7 @@ import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
 import ProductPicker, { TicketDraft, addLine, ordersFromLines } from '@/components/ProductPicker';
 import Modal from '@/components/Modal';
+import { kickEcf } from '@/lib/ecf/kick';
 
 // Caja: el plano de mesas con sus cuentas, y desde cada una agregar productos, sacar la prefactura,
 // cobrar (dividido, mixto, con propina, descuento y RNC) y cerrar con su factura. También venta rápida.
@@ -374,6 +375,7 @@ function PaySheet({ tab, charges, onCancel, onPaid, showToast }) {
     setBusy(false);
     if (error) { showToast(error.message); return; }
     showToast('Cuenta cobrada');
+    kickEcf();
     onPaid(data);
   }
 
@@ -497,6 +499,7 @@ function QuickSale({ items, categories, taxPercent, branch, onClose, showToast, 
     });
     if (error) { setBusy(false); showToast(error.message); return; }
     const { data: inv } = await sb.rpc('invoice_for_order', { order_input: id });
+    kickEcf();
     setBusy(false);
     showToast('Venta cobrada');
     if (inv) router.push(`/factura/${inv}`); else onClose();

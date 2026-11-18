@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { sb } from '@/lib/supabaseClient';
 import { money } from '@/hooks/useMenuItems';
 import { PAY_LABEL } from '@/lib/pos';
+import { kickEcf } from '@/lib/ecf/kick';
 
 const CONFIRM_METHODS = ['tarjeta', 'efectivo', 'transferencia'];
 
@@ -23,6 +24,7 @@ export default function StaffPayments({ tab, onChanged, showToast }) {
     setBusy(null);
     if (error) { showToast(error.message); onChanged(); return; }
     showToast(`Cobrado: ${p.person}`);
+    kickEcf();
     onChanged();
   }
 

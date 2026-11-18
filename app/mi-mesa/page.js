@@ -14,6 +14,7 @@ import { ORDER_STATUS, PAY_LABEL, tabTotals } from '@/lib/pos';
 import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
 import Modal from '@/components/Modal';
+import { kickEcf } from '@/lib/ecf/kick';
 
 const timeOf = (d) => new Date(d).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
 
@@ -255,6 +256,7 @@ function PayPartSheet({ tab, active, people, charges, onClose, onDone }) {
     if (err) { setError(/tab_pay_part|schema cache/i.test(err.message) ? 'Pagar por persona todavía no está disponible en este restaurante.' : err.message); return; }
     try { window.localStorage.setItem(ME_KEY, who); } catch (e) { /* nada */ }
     showToast(data && data.status === 'paid' ? '¡Listo, tu parte está pagada!' : 'Listo: el camarero viene a cobrarte');
+    if (data && data.status === 'paid') kickEcf();
     onDone();
   }
 

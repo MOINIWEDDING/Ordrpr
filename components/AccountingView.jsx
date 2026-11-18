@@ -85,6 +85,9 @@ export default function AccountingView({ acc }) {
             <div><dt>Consumo final</dt><dd>{m0(inv.finalAmount)}<small>{inv.finalCount} {inv.finalCount === 1 ? 'venta' : 'ventas'}</small></dd></div>
             <div className={inv.voidCount ? 'is-warn' : ''}><dt>Anuladas</dt><dd>{m0(inv.voidAmount)}<small>{inv.voidCount} {inv.voidCount === 1 ? 'factura' : 'facturas'}</small></dd></div>
             {inv.legacyCount > 0 && <div><dt>Pedidos sin factura</dt><dd>{m0(inv.legacyAmount)}<small>{inv.legacyCount} anteriores a la facturación</small></dd></div>}
+            {(inv.ecfAccepted + inv.ecfPending + inv.ecfRejected) > 0 && (
+              <div className={inv.ecfRejected ? 'is-warn' : ''}><dt>Comprobantes electrónicos</dt><dd>{inv.ecfAccepted} aceptados<small>{inv.ecfPending} en proceso · {inv.ecfRejected} rechazados</small></dd></div>
+            )}
             <div><dt>Por cobrar ahora</dt><dd>{m0(acc.receivable.amount)}<small>{acc.receivable.tabs} {acc.receivable.tabs === 1 ? 'cuenta abierta' : 'cuentas abiertas'}</small></dd></div>
           </dl>
         </section>

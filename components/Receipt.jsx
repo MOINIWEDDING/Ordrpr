@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { money } from '@/hooks/useMenuItems';
 import { describeOptions } from '@/lib/productOptions';
 import { PAY_LABEL, groupLines, tabTotals } from '@/lib/pos';
@@ -97,7 +98,7 @@ export function Factura({ invoice }) {
   return (
     <div className={`receipt${invoice.status === 'anulada' ? ' is-void' : ''}`}>
       <BusinessHead b={b} />
-      <div className="rc-title">Factura {invoiceNumber(invoice.number)}</div>
+      <div className="rc-title">{invoice.ecf_type === '31' ? 'Factura de Crédito Fiscal Electrónica' : invoice.ecf_type === '32' ? 'Factura de Consumo Electrónica' : 'Factura'} {invoiceNumber(invoice.number)}</div>
       {invoice.ncf && <div className="rc-ncf">e-NCF {invoice.ncf}</div>}
       <div className="rc-meta">
         <span>{fmtDateTime(invoice.issued_at)}</span>
@@ -108,7 +109,7 @@ export function Factura({ invoice }) {
       </div>
       {fiscal.rnc ? (
         <div className="rc-fiscal">
-          <b>{fiscal.type === 'credito_fiscal' ? 'Crédito fiscal' : 'Consumidor final'}</b>
+          <b>{fiscal.type === 'credito_fiscal' || invoice.ecf_type === '31' || (!fiscal.type && fiscal.rnc) ? 'Crédito fiscal' : 'Consumidor final'}</b>
           <span>RNC/Cédula {fiscal.rnc}</span>
           {fiscal.name && <span>{fiscal.name}</span>}
         </div>
@@ -127,8 +128,28 @@ export function Factura({ invoice }) {
         ))}
       </div>
       {invoice.status === 'anulada' && <p className="rc-void">Anulada</p>}
+      {invoice.ecf_status && <EcfStamp invoice={invoice} />}
       {b.footer && <p className="rc-note">{b.footer}</p>}
       <p className="rc-note">¡Gracias por su visita!</p>
+    </div>
+  );
+}
+
+const ECF_LABEL = { pendiente: 'Enviando a la DGII', enviando: 'Enviando a la DGII', enviado: 'Esperando a la DGII', aceptado: 'Aceptada por la DGII', aceptado_obs: 'Aceptada con observaciones', rechazado: 'Rechazada por la DGII', error: 'Envío pendiente' };
+
+// El sello del comprobante electrónico: código de seguridad, fecha de firma y el QR para consultarlo en la DGII.
+function EcfStamp({ invoice }) {
+  const [qr, setQr] = useState('');
+  useEffect(() => {
+    if (!invoice.ecf_stamp_url) return;
+    import('qrcode').then((m) => m.toDataURL(invoice.ecf_stamp_url, { margin: 0, width: 220 })).then(setQr).catch(() => {});
+  }, [invoice.ecf_stamp_url]);
+  return (
+    <div className="rc-ecf">
+      <span className="rc-ecf-status">{ECF_LABEL[invoice.ecf_status] || invoice.ecf_status}</span>
+      {qr && <img src={qr} alt="Código QR para consultar el comprobante en la DGII" />}
+      {invoice.ecf_security_code && <b>Código de seguridad: {invoice.ecf_security_code}</b>}
+      {invoice.ecf_signed_at && <span>Fecha de firma: {new Date(invoice.ecf_signed_at).toLocaleString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
     </div>
   );
 }
