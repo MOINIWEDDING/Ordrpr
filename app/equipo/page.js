@@ -113,6 +113,8 @@ export default function EquipoPage() {
     const d = { token: data, name: devName.trim() || 'Aparato del local', branch: devBranch || null };
     setStaffDevice(d);
     setDevice(d);
+    // el aparato queda para el equipo: la sesión del dueño no se queda abierta aquí
+    await logout();
   }
 
   const brand = settings.brand_name || '';
@@ -182,6 +184,11 @@ export default function EquipoPage() {
                 </motion.li>
               ))}
             </ul>
+          )}
+          {!profile && (
+            <div className="crew-foot">
+              <button type="button" onClick={() => openAuth('login', 'staff')}>Soy el dueño</button>
+            </div>
           )}
           {isStaff && (
             <div className="crew-foot">

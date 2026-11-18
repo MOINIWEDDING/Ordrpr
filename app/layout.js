@@ -22,6 +22,7 @@ import GiftCardNotifier from '@/components/GiftCardNotifier';
 import GiftReceivedNotifier from '@/components/GiftReceivedNotifier';
 import OrderStatusNotifier from '@/components/OrderStatusNotifier';
 import BranchGateWrapper from '@/components/BranchGateWrapper';
+import DeviceGuard from '@/components/DeviceGuard';
 import { getServerSettings } from '@/lib/serverSettings';
 import { themeCss } from '@/lib/theme';
 
@@ -74,6 +75,7 @@ export default async function RootLayout({ children }) {
                       <GiftReceivedNotifier />
                       <OrderStatusNotifier />
                       <BranchGateWrapper />
+                      <DeviceGuard />
                     </GuestInfoProvider>
                   </BranchProvider>
                 </OrdersNotifyProvider>
