@@ -15,7 +15,6 @@ import { describeOptions } from '@/lib/productOptions';
 import { ORDER_STATUS, PAY_METHODS, PAY_LABEL, tabTotals, minutesSince, useLiveReload, beep } from '@/lib/pos';
 import StaffPayments from '@/components/TabPayments';
 import { sendToPrinters } from '@/lib/print/send';
-import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
 import ProductPicker, { TicketDraft, addLine, ordersFromLines } from '@/components/ProductPicker';
 import Modal from '@/components/Modal';
@@ -24,7 +23,7 @@ import { kickEcf } from '@/lib/ecf/kick';
 // Caja: el plano de mesas con sus cuentas, y desde cada una agregar productos, sacar la prefactura,
 // cobrar (dividido, mixto, con propina, descuento y RNC) y cerrar con su factura. También venta rápida.
 export default function CajaPage() {
-  const { profile, canUsePos, authReady } = useAuth();
+  const { profile, canUsePos, authReady, isCashier } = useAuth();
   const router = useRouter();
   const { branch, branchInfo } = useBranch();
   const { settings } = useSettings();
@@ -69,7 +68,8 @@ export default function CajaPage() {
   }, [canUsePos]);
 
   // aviso cuando una mesa llama al camarero o pide la cuenta
-  const calls = tabs.filter((t) => t.call_waiter_at || t.status === 'bill').length;
+  // a la caja solo le toca lo que se cobra: cuentas pedidas y avisos de pago (los llamados son del camarero)
+  const calls = tabs.filter((t) => (!isCashier && t.call_waiter_at) || t.status === 'bill').length + (isCashier ? pendingPays.length : 0);
   useEffect(() => { if (calls > callsSeen) beep(); setCallsSeen(calls); }, [calls]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tabByTable = useMemo(() => Object.fromEntries(tabs.filter((t) => t.table_id).map((t) => [t.table_id, t])), [tabs]);
@@ -111,15 +111,15 @@ export default function CajaPage() {
             const tot = tab ? tabTotals(tOrders, charges).total : 0;
             const state = !tab ? 'free' : tab.status === 'bill' ? 'bill' : 'busy';
             return (
-              <button key={tb.id} type="button" className={`pos-table is-${state}${tab && tab.call_waiter_at ? ' is-calling' : ''}`} onClick={() => setOpenTableId(tb.id)}>
+              <button key={tb.id} type="button" className={`pos-table is-${state}${tab && tab.call_waiter_at && !isCashier ? ' is-calling' : ''}`} onClick={() => setOpenTableId(tb.id)}>
                 <span className="pos-table-name">{tb.label}</span>
                 {tab ? (
                   <>
                     <span className="pos-table-total">{money(tot)}</span>
                     <span className="pos-table-meta">{tab.guests} pers. · {minutesSince(tab.created_at)} min</span>
                     {tab.status === 'bill' && <span className="pos-table-flag">Pide la cuenta</span>}
-                    {tab.call_waiter_at && tab.status !== 'bill' && <span className="pos-table-flag">Llama</span>}
-                    {tab.status !== 'bill' && !tab.call_waiter_at && pendingPays.some((p) => p.tab_id === tab.id) && <span className="pos-table-flag">Quiere pagar</span>}
+                    {tab.call_waiter_at && tab.status !== 'bill' && !isCashier && <span className="pos-table-flag">Llama</span>}
+                    {tab.status !== 'bill' && (!tab.call_waiter_at || isCashier) && pendingPays.some((p) => p.tab_id === tab.id) && <span className="pos-table-flag">Quiere pagar</span>}
                   </>
                 ) : <span className="pos-table-meta">Libre</span>}
               </button>
@@ -130,6 +130,7 @@ export default function CajaPage() {
 
       {openTable && (
         <TabPanel
+          cashier={isCashier}
           table={openTable}
           tab={tabByTable[openTable.id] || null}
           tables={tables}
@@ -154,7 +155,7 @@ export default function CajaPage() {
 }
 
 // Una mesa: abrir su cuenta o manejar la que tiene.
-function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, taxPercent, waiters, business, branch, onClose, onChanged, showToast }) {
+function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, taxPercent, waiters, business, branch, onClose, onChanged, showToast, cashier }) {
   const [detail, setDetail] = useState(null);
   const [mode, setMode] = useState('view'); // view | add | bill | pay | move
   const [lines, setLines] = useState([]);
@@ -220,7 +221,9 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
           <h3>{table.label}</h3>
         </div>
 
-        {!tab ? (
+        {!tab && cashier ? (
+          <p className="empty-note">Esta mesa no tiene cuenta abierta. La abre el camarero o el cliente con el QR.</p>
+        ) : !tab ? (
           <div className="pos-open">
             <div className="field">
               <label htmlFor="posName">A nombre de <span className="muted">(opcional)</span></label>
@@ -246,7 +249,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
           <div className="pos-receipt-modal">
             <div className="print-target"><Prefactura tab={due} charges={charges} business={business} /></div>
             <div className="pos-row">
-              <button type="button" className="btn btn-ghost" onClick={printReceipt}>Imprimir aquí</button>
+              <a className="btn btn-ghost" href={`/prefactura/${tab.id}`}>Imprimir aquí</a>
               <button type="button" className="btn btn-amber" onClick={printBill}>Enviar a impresora</button>
             </div>
             <button type="button" className="pos-back" onClick={() => setMode('view')}>Volver a la cuenta</button>
@@ -267,12 +270,16 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
           <>
             <div className="pos-tab-info">
               <span>{detail.opened_name || 'Sin nombre'} · {detail.guests} pers. · código <b>{detail.code}</b></span>
-              <select value={detail.waiter_id || ''} onChange={(e) => staff('assign_waiter', e.target.value)} aria-label="Camarero">
-                <option value="">Sin camarero</option>
-                {waiters.map((w) => <option key={w.id} value={w.id}>{w.name || 'Camarero'}</option>)}
-              </select>
+              {cashier ? (
+                <span className="pos-waiter-name">{(waiters.find((w) => w.id === detail.waiter_id) || {}).name || 'Sin camarero'}</span>
+              ) : (
+                <select value={detail.waiter_id || ''} onChange={(e) => staff('assign_waiter', e.target.value)} aria-label="Camarero">
+                  <option value="">Sin camarero</option>
+                  {waiters.map((w) => <option key={w.id} value={w.id}>{w.name || 'Camarero'}</option>)}
+                </select>
+              )}
             </div>
-            {detail.call_waiter_at && (
+            {detail.call_waiter_at && !cashier && (
               <div className="pos-call">
                 <span>La mesa llamó al camarero</span>
                 <button type="button" onClick={() => staff('clear_call')}>Atendido</button>
@@ -305,16 +312,16 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
               <div className="pos-sum-total"><span>{unpaid.length < detail.orders.length ? 'Falta por cobrar' : 'Total'}</span><span>{money(totals.total)}</span></div>
             </div>
 
-            <div className="pos-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => { setPerson(people[0] || detail.opened_name || ''); setMode('add'); }}>Agregar</button>
+            <div className={`pos-actions${cashier ? ' is-cashier' : ''}`}>
+              {!cashier && <button type="button" className="btn btn-ghost" onClick={() => { setPerson(people[0] || detail.opened_name || ''); setMode('add'); }}>Agregar</button>}
               <button type="button" className="btn btn-ghost" onClick={() => setMode('bill')} disabled={!unpaid.length}>Prefactura</button>
               <button type="button" className="btn btn-amber pos-pay" onClick={() => setMode('pay')} disabled={!unpaid.length}>Cobrar {money(totals.total)}</button>
             </div>
-            <div className="pos-more">
+            {!cashier && <div className="pos-more">
               <button type="button" onClick={() => setMode('move')}>Cambiar de mesa</button>
               {detail.status === 'bill' && <button type="button" onClick={() => staff('reopen')}>Seguir pidiendo</button>}
               {detail.orders.length === 0 && <button type="button" onClick={async () => { if (await staff('cancel')) onClose(); }}>Cancelar cuenta</button>}
-            </div>
+            </div>}
           </>
         )}
       </div>

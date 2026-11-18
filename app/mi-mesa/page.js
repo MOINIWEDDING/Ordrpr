@@ -11,7 +11,6 @@ import { describeOptions } from '@/lib/productOptions';
 import { getGuestPushRef } from '@/lib/guestOrders';
 import { useActiveTab, setActiveTab } from '@/lib/activeTab';
 import { ORDER_STATUS, PAY_LABEL, tabTotals } from '@/lib/pos';
-import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
 import Modal from '@/components/Modal';
 import { kickEcf } from '@/lib/ecf/kick';
@@ -200,7 +199,7 @@ export default function MiMesaPage() {
         <Modal onClose={() => setShowBill(false)}>
           <div className="pos-receipt-modal">
             <div className="print-target"><Prefactura tab={{ ...tab, orders: unpaid }} charges={charges} business={business} /></div>
-            <button type="button" className="btn btn-ghost btn-block" onClick={printReceipt}>Imprimir o guardar en PDF</button>
+            <a className="btn btn-ghost btn-block" href={`/prefactura/${tab.id}?c=${encodeURIComponent(active.code)}`}>Imprimir o guardar en PDF</a>
           </div>
         </Modal>
       )}

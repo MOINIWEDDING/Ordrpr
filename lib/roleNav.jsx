@@ -46,7 +46,8 @@ export function navForRole(role, { showNosotros = true, loyalty = false, activeT
       desktop: [T.inicio, T.menu, T.caja, T.ordenes, T.cocina, T.mesas, T.estadisticas, T.contabilidad, T.promos, T.usuarios],
     };
   }
-  if (role === 'cajero') return { tabs: [T.caja, T.ordenes, T.cocina, T.menu], more: [], desktop: [T.caja, T.ordenes, T.cocina, T.menu] };
+  // la caja solo cobra y factura (y vende en el mostrador)
+  if (role === 'cajero') return { tabs: [T.caja], more: [], desktop: [T.caja] };
   if (role === 'camarero') return { tabs: [T.mesas, T.cocina], more: [], desktop: [T.mesas, T.cocina] };
   if (role === 'cocina') return { tabs: [T.cocina, T.ordenes], more: [], desktop: [T.cocina, T.ordenes] };
   if (role === 'contador') return { tabs: [T.contabilidad], more: [], desktop: [T.contabilidad] };

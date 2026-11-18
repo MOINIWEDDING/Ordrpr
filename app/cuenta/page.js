@@ -51,9 +51,7 @@ function LogoutButton({ logout }) {
 // Cajero, camarero, cocina y comensal: solo los accesos a sus pantallas.
 const TEAM_ROLES = {
   cajero: { label: 'Cajero', links: [
-    { href: '/caja', title: 'Caja', sub: 'Mesas, cuentas abiertas, cobros y facturas.' },
-    { href: '/ordenes', title: 'Órdenes', sub: 'Los pedidos de la web y de las mesas.' },
-    { href: '/cocina', title: 'Cocina', sub: 'Las comandas en preparación.' },
+    { href: '/caja', title: 'Caja', sub: 'Cobrar las cuentas, facturar y vender en el mostrador.' },
   ] },
   camarero: { label: 'Camarero', links: [
     { href: '/camarero', title: 'Mis mesas', sub: 'Toma pedidos y envíalos a la cocina.' },
