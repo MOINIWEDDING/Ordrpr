@@ -508,3 +508,34 @@ grant execute on function public.staff_device_add(text, text), public.staff_devi
   public.tab_eta_set(uuid, integer, text), public.tab_eta_extend(uuid, integer), public.tab_eta_done(uuid),
   public.tab_eta_sweep(text), public.waiter_strike_void(uuid), public.team_list() to authenticated;
 grant execute on function public.staff_pin_set(uuid, text) to service_role;
+
+-- ---------- Contabilidad ----------
+-- El contador (y el dueño) leen lo que necesitan los reportes: facturas, pedidos, gift cards, cuentas
+-- abiertas y pagos por persona. Solo lectura.
+drop policy if exists "Accounting read invoices" on public.invoices;
+create policy "Accounting read invoices" on public.invoices for select using (public.is_accounting());
+drop policy if exists "Accounting read orders" on public.orders;
+create policy "Accounting read orders" on public.orders for select using (public.is_accounting());
+drop policy if exists "Accounting read gift cards" on public.gift_cards;
+create policy "Accounting read gift cards" on public.gift_cards for select using (public.is_accounting());
+drop policy if exists "Accounting read tabs" on public.tabs;
+create policy "Accounting read tabs" on public.tabs for select using (public.is_accounting());
+drop policy if exists "Accounting read tab payments" on public.tab_payments;
+create policy "Accounting read tab payments" on public.tab_payments for select using (public.is_accounting());
+
+-- Los nombres del equipo (para ventas y propinas por camarero o cajero).
+create or replace function public.accounting_people()
+returns table (id uuid, name text, role text)
+language plpgsql
+stable security definer
+set search_path to 'public'
+as $function$
+begin
+  if not public.is_accounting() then raise exception 'no autorizado'; end if;
+  return query select p.id, p.name, p.role from public.profiles p
+  where p.role in ('staff', 'comensal', 'cajero', 'camarero', 'cocina', 'contador')
+     or exists (select 1 from public.invoices i where i.waiter_id = p.id or i.cashier_id = p.id);
+end;
+$function$;
+revoke execute on function public.accounting_people() from public, anon;
+grant execute on function public.accounting_people() to authenticated;

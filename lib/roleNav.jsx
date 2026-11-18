@@ -15,6 +15,7 @@ export const ICONS = {
   kitchen: <><path d="M7 11a4 4 0 0 1 1.2-7.8A4.5 4.5 0 0 1 16 4a3.6 3.6 0 0 1 1 7z" /><path d="M7 11v8h10v-8M7 15h10" /></>,
   tables: <><rect x="3" y="7" width="18" height="5" rx="1.5" /><path d="M6 12v7M18 12v7M9 16h6" /></>,
   more: <><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></>,
+  ledger: <><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z" /><path d="M9 7h6M9 11h6M9 15h3" /></>,
   printer: <><path d="M7 9V4h10v5" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v6H7z" /></>,
 };
 
@@ -31,6 +32,7 @@ const T = {
   estadisticas: { href: '/estadisticas', label: 'Estadísticas', icon: ICONS.stats },
   promos: { href: '/promociones', label: 'Promos', desktop: 'Promociones', icon: ICONS.promo },
   usuarios: { href: '/usuarios', label: 'Usuarios', icon: ICONS.users },
+  contabilidad: { href: '/contabilidad', label: 'Contabilidad', icon: ICONS.ledger },
   miMesa: { href: '/mi-mesa', label: 'Mi mesa', icon: ICONS.tables },
   cuenta: { href: '/cuenta', label: 'Cuenta', icon: ICONS.user },
 };
@@ -40,13 +42,14 @@ export function navForRole(role, { showNosotros = true, loyalty = false, activeT
   if (role === 'staff') {
     return {
       tabs: [T.caja, T.ordenes, T.menu, T.estadisticas],
-      more: [T.inicio, T.cocina, T.mesas, T.promos, T.usuarios],
+      more: [T.inicio, T.cocina, T.mesas, T.contabilidad, T.promos, T.usuarios],
       desktop: [T.inicio, T.menu, T.caja, T.ordenes, T.cocina, T.estadisticas, T.promos, T.usuarios],
     };
   }
   if (role === 'cajero') return { tabs: [T.caja, T.ordenes, T.cocina, T.menu], more: [], desktop: [T.caja, T.ordenes, T.cocina, T.menu] };
   if (role === 'camarero') return { tabs: [T.mesas, T.cocina], more: [], desktop: [T.mesas, T.cocina] };
   if (role === 'cocina') return { tabs: [T.cocina, T.ordenes], more: [], desktop: [T.cocina, T.ordenes] };
+  if (role === 'contador') return { tabs: [T.contabilidad], more: [], desktop: [T.contabilidad] };
   if (role === 'comensal') return { tabs: [T.ordenes, T.caja], more: [], desktop: [T.ordenes, T.caja] };
   // clientes y visitantes
   const base = [T.inicio, T.menu, ...(showNosotros ? [T.nosotros] : []), T.pedidos, ...(loyalty ? [T.pase] : [])];

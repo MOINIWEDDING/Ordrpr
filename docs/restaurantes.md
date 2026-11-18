@@ -84,6 +84,7 @@ Si el restaurante no quiere avisos push, sáltate este paso: la app funciona igu
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Llave anon / public de su Supabase |
    | `NEXT_PUBLIC_ONESIGNAL_APP_ID` | App ID de OneSignal (opcional) |
    | `ONESIGNAL_REST_API_KEY` | REST API Key de OneSignal (opcional) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Clave *service_role* de **su** Supabase (Project Settings → API). Hace falta para que el equipo entre con PIN. Solo va aquí, nunca en el código ni en el chat. |
 
 3. **Deploy.** Después, en **Settings → Domains**, conecta su dominio.
 
@@ -140,15 +141,18 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 
 ## Punto de venta: puesta en marcha en un restaurante
 
-1. **Equipo:** en **Cuenta → Tu negocio → Equipo**, agrega a cada persona con su correo y su rol:
+1. **Equipo:** en **Cuenta → Tu negocio → Equipo**, agrega a cada persona **con PIN** (nombre, rol y 4 números; no necesita correo) o **con correo**:
    - **Cajero:** caja, cuentas, cobros, facturas y órdenes.
    - **Camarero:** sus mesas y la carta para tomar pedidos.
    - **Cocina:** la pantalla de comandas.
-   - **Dueño:** todo.
-2. **Mesas y QR:** en **Sucursales y mesas**, crea las mesas y toca **Códigos QR de las mesas** para imprimirlos. Cada QR abre la cuenta de su mesa.
-3. **Facturación:** en **Facturación**, pon la razón social y el RNC que salen en las facturas.
-4. **Productos:** en cada producto, agrega los **ingredientes** (los ven los camareros) y si se prepara en **cocina** o **bar**. Las categorías también tienen estación.
-5. **Impresoras (prueba):** en **Impresoras**, agrega una impresora:
+   - **Contador:** solo Contabilidad (reportes en PDF y CSV).
+   - **Dueño:** todo (siempre con correo).
+2. **Aparatos del local:** en la tablet o el teléfono del local, abre `/equipo`, entra como dueño y toca **Usar este aparato para el equipo**. Desde ahí cada quien toca su nombre y pone su PIN. El PIN solo funciona en aparatos activados; 5 errores bloquean a esa persona 15 minutos. Requiere `SUPABASE_SERVICE_ROLE_KEY` en Vercel.
+3. **Tiempos de los camareros:** cuando una mesa llama o pide la cuenta, el camarero dice en cuánto va. Si se le vence el tiempo sin marcar «Ya fui», se le anota un strike que el dueño ve (y puede quitar) en Equipo.
+4. **Mesas y QR:** en **Sucursales y mesas**, crea las mesas y toca **Códigos QR de las mesas** para imprimirlos. Cada QR abre la cuenta de su mesa.
+5. **Facturación:** en **Facturación**, pon la razón social y el RNC que salen en las facturas.
+6. **Productos:** en cada producto, agrega los **ingredientes** (los ven los camareros) y si se prepara en **cocina** o **bar**. Las categorías también tienen estación.
+7. **Impresoras (prueba):** en **Impresoras**, agrega una impresora:
    - **Virtual:** se ve en el navegador, sin equipo; ideal para probar.
    - **Star (CloudPRNT)** o **Epson (Server Direct Print):** copia la dirección que aparece y pégala en la configuración de la impresora. La impresora la consulta sola cada pocos segundos.
    - Las impresoras de cocina y bar reciben las comandas solas. La de caja recibe prefacturas y facturas cuando se envían desde Caja.
@@ -172,6 +176,7 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 | `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
+| `20261119000000_equipo_pin_tiempos_contabilidad.sql` | Equipo con PIN y aparatos del local; tiempos de los camareros con strikes; rol de contador con lectura de facturas para la contabilidad. |
 | `20261118000000_punto_de_venta.sql` | Punto de venta: roles de cajero, camarero y cocina; cuentas abiertas por mesa; facturas; estrellas a los camareros; impresoras por internet; ingredientes, estación y agotado en los productos. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.

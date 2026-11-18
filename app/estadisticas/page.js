@@ -9,6 +9,8 @@ import { useBranch } from '@/context/BranchContext';
 import { useSettings } from '@/context/SettingsContext';
 import { formatIn } from '@/lib/settingsDefaults';
 import Modal from '@/components/Modal';
+import AccountingView, { useAccounting } from '@/components/AccountingView';
+import MarketingStats from '@/components/MarketingStats';
 import { PERIODS, capitalize, dayKey, startOfDay, addDays, addMonths, periodRange, lineRange, lineTitle, periodTitle, computeStats, loadStatsData } from '@/lib/stats';
 
 export default function EstadisticasPage() {
@@ -27,6 +29,7 @@ export default function EstadisticasPage() {
   const [lineA, setLineA] = useState(() => ({ from: dayKey(addDays(new Date(), -6)), to: dayKey(new Date()) }));
   const [lineB, setLineB] = useState(() => ({ from: dayKey(addDays(new Date(), -13)), to: dayKey(addDays(new Date(), -7)) }));
   const [exporting, setExporting] = useState(false);
+  const [view, setView] = useState('eco'); // eco | mkt
   const range = useMemo(() => {
     if (period === 'todo') return null;
     if (period !== 'custom') return periodRange(period, day);
@@ -59,6 +62,9 @@ export default function EstadisticasPage() {
     load();
   }, [branch, range]);
 
+  const accRangeNow = range ? { start: range.start, end: range.end } : { start: null, end: null };
+  const { acc, loading: accLoading } = useAccounting({ branch, start: accRangeNow.start, end: accRangeNow.end, enabled: !!(profile && isStaff) && view === 'eco' });
+  const periodOrders = range ? rawOrders.filter((o) => { const t = new Date(o.created_at); return t >= range.start && t < range.end; }) : rawOrders;
   const stats = useMemo(() => computeStats({ rawOrders, profiles, menuItems, giftCards, range, period, settings }), [rawOrders, profiles, menuItems, giftCards, range, period, settings]);
 
   const compareLabel = !range ? '' : period === 'custom' ? `la línea B (${lineTitle(lineB).toLowerCase()})` : {
@@ -79,6 +85,16 @@ export default function EstadisticasPage() {
           <p className="eyebrow">Panel del dueño</p>
           <h2 style={{ fontSize: 24 }}>Estadísticas</h2>
           <p>{branchInfo ? `Ventas y pedidos de ${branchInfo.full}. Los clientes y gift cards son del negocio completo.` : 'Un vistazo a cómo le está yendo al local.'}</p>
+        </div>
+
+        <div className="stat-views" role="tablist" aria-label="Estadísticas">
+          <button type="button" role="tab" aria-selected={view === 'eco'} className={view === 'eco' ? 'on' : ''} onClick={() => setView('eco')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M11 20V4M18 20v-7" /></svg>Económicas
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'mkt'} className={view === 'mkt' ? 'on' : ''} onClick={() => setView('mkt')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2" /><path d="M3 19.5a6 6 0 0 1 12 0" /><path d="M15.5 5.5a3.2 3.2 0 0 1 0 6.2M17.5 14.2a6 6 0 0 1 3.5 5.3" /></svg>Marketing
+          </button>
+          <a href="/contabilidad" className="stat-views-link">Reportes contables</a>
         </div>
 
         <div className="stat-toolbar">
@@ -112,13 +128,14 @@ export default function EstadisticasPage() {
           <p className="empty-note">{period === 'custom' ? 'No hubo pedidos en ninguna de las dos líneas de tiempo.' : range ? `No hubo pedidos ${{ dia: 'este día', semana: 'esta semana', mes: 'este mes' }[period]} ni ${{ dia: 'el anterior', semana: 'la anterior', mes: 'el anterior' }[period]}.` : 'Todavía no hay suficientes pedidos para mostrar estadísticas.'}</p>
         ) : (
           <>
+            {view === 'eco' ? (
+              <>
             <div className="kpi-grid">
               <KpiCard label="Ventas totales" value={stats.current.revenue} format={money} delta={delta('revenue')} />
               <KpiCard label={{ dia: 'Pedidos del día', semana: 'Pedidos de la semana', mes: 'Pedidos del mes' }[period] || 'Pedidos'} value={stats.current.count} delta={delta('count')} />
               <KpiCard label="Vendido en tarjeta" value={stats.current.card} format={money} delta={delta('card')} />
               <KpiCard label="Vendido en efectivo" value={stats.current.cash} format={money} delta={delta('cash')} />
               <KpiCard label="Ticket promedio" value={stats.current.avgTicket} format={(v) => money(Math.round(v))} delta={delta('avgTicket')} />
-              <KpiCard label="Clientes registrados" value={stats.totalClients} />
               {stats.hasCostData && <KpiCard label="Ganancia estimada" value={stats.current.profit} format={(v) => money(Math.round(v))} delta={delta('profit')} highlight />}
             </div>
 
@@ -133,45 +150,11 @@ export default function EstadisticasPage() {
               </StatSection>
             )}
 
-            {stats.hasExtraCurrencies && (
-              <StatSection title="Ventas por moneda">
-                <div className="currency-stat-grid">
-                  {stats.currencySales.map((c) => {
-                    const fmt = (n) => (c.base ? money(Math.round(n)) : formatIn(n, c));
-                    const prev = stats.prevCurrencySales && (stats.prevCurrencySales.find((p) => p.code === c.code) || { collected: 0 });
-                    return (
-                      <motion.div key={c.code} className="currency-stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                        <div className="currency-stat-head">
-                          <span className="currency-stat-symbol">{c.symbol}</span>
-                          <span>{c.name}</span>
-                        </div>
-                        <span className="kpi-label">Cobrado</span>
-                        <span className="kpi-value">{fmt(c.collected)}</span>
-                        {prev && <DeltaLine current={c.collected} prev={prev.collected} format={fmt} />}
-                        <dl className="currency-stat-rows">
-                          {!c.base && <div><dt>Equivale a</dt><dd>{money(Math.round(c.equivalent))}</dd></div>}
-                          <div><dt>Pedidos</dt><dd>{c.count} ({Math.round((c.count / Math.max(1, stats.totalOrders)) * 100)}%)</dd></div>
-                          <div><dt>Ticket promedio</dt><dd>{fmt(c.collected / Math.max(1, c.count))}</dd></div>
-                          <div><dt>Efectivo</dt><dd>{fmt(c.cash)}</dd></div>
-                          <div><dt>Tarjeta</dt><dd>{fmt(c.card)}</dd></div>
-                          {!c.base && c.collected > 0 && <div><dt>Tasa promedio</dt><dd>1 {c.symbol} = {money(Math.round((c.equivalent / c.collected) * 100) / 100)}</dd></div>}
-                        </dl>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-                {stats.currencySales.length > 1 && (
-                  <div style={{ marginTop: 18 }}>
-                    <BarList
-                      items={stats.currencySales.map((c) => ({ label: `${c.symbol} · ${c.name}`, value: Math.round(c.equivalent) }))}
-                      formatValue={(v) => money(v)}
-                      tint="experiencia"
-                    />
-                  </div>
-                )}
-              </StatSection>
-            )}
-
+                {accLoading && !acc ? <p className="empty-note">Cargando la contabilidad…</p> : <AccountingView acc={acc} />}
+              </>
+            ) : (
+              <>
+                <MarketingStats orders={periodOrders} profiles={profiles} range={range} />
             <div className="stat-two-col">
               <StatSection title="Platos más vendidos">
                 <BarList items={stats.bestSellers.map((i) => ({ label: i.name, value: i.qty }))} suffix=" vendidos" />
@@ -181,22 +164,13 @@ export default function EstadisticasPage() {
               </StatSection>
             </div>
 
-            <StatSection title="Ventas por categoría">
-              <BarList items={stats.categories} formatValue={(v) => money(Math.round(v))} tint="tarde" />
+            <StatSection title="Cuentas vs. invitados">
+              <BarList
+                items={[{ label: 'Con cuenta', value: stats.accountOrders }, { label: 'Invitados', value: stats.guestOrders }]}
+                suffix=" pedidos"
+                tint="manana"
+              />
             </StatSection>
-
-            <div className="stat-two-col">
-              <StatSection title="Métodos de pago">
-                <BarList items={stats.payments} suffix=" pedidos" tint="experiencia" />
-              </StatSection>
-              <StatSection title="Cuentas vs. invitados">
-                <BarList
-                  items={[{ label: 'Con cuenta', value: stats.accountOrders }, { label: 'Invitados', value: stats.guestOrders }]}
-                  suffix=" pedidos"
-                  tint="manana"
-                />
-              </StatSection>
-            </div>
 
             <div className="stat-two-col">
               <StatSection title="Sexo de quienes piden">
@@ -215,19 +189,7 @@ export default function EstadisticasPage() {
               />
             </StatSection>
 
-            <StatSection title="Gift cards">
-              <div className="kpi-grid">
-                <KpiCard label="Vendidas" value={stats.gcSoldCount} small />
-                <KpiCard label="Monto vendido" value={money(stats.gcSoldAmount)} small />
-                <KpiCard label="Canjeadas" value={stats.gcRedeemedCount} small />
-                <KpiCard label="Balance activo" value={money(stats.gcActiveBalance)} small />
-              </div>
-            </StatSection>
-
-            {!stats.hasCostData && (
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-                Tip: agrégale un costo a tus productos (al editarlos en el menú) para ver aquí la ganancia estimada, no solo las ventas.
-              </p>
+              </>
             )}
           </>
         )}
