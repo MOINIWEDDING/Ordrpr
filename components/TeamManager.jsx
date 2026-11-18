@@ -6,7 +6,7 @@ import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 const ROLE_LABEL = { staff: 'Dueño', cajero: 'Cajero', camarero: 'Camarero', cocina: 'Cocina', comensal: 'Comensal', contador: 'Contador' };
 const ROLE_HELP = {
   staff: 'Acceso total: menú, configuración, equipo, estadísticas, caja y órdenes.',
-  cajero: 'Caja, cuentas de las mesas, cobros, facturas y órdenes.',
+  cajero: 'Solo cobra y factura: cobra las cuentas de las mesas, confirma pagos y hace ventas de mostrador.',
   camarero: 'Sus mesas y la carta para tomar pedidos y enviarlos a la cocina.',
   cocina: 'La pantalla de comandas para preparar los pedidos.',
   comensal: 'Ve y atiende las órdenes.',

@@ -2793,3 +2793,5 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
 .device-owner-bar{position:fixed; left:50%; bottom:calc(var(--tab-h) + var(--safe-b) + 14px); transform:translateX(-50%); z-index:450; display:flex; align-items:center; gap:12px; max-width:calc(100% - 24px); padding:8px 8px 8px 16px; border-radius:100px; background:var(--amber); color:var(--on-amber); font-size:13px; box-shadow:0 14px 30px -14px rgba(0,0,0,.5);}
 .device-owner-bar button{flex-shrink:0; height:34px; padding:0 14px; border:none; border-radius:100px; background:#fff; color:var(--amber-deep); font-family:var(--font-ui); font-size:13px; font-weight:800; cursor:pointer;}
 @media (min-width:640px){ .device-owner-bar{bottom:20px;} }
+.pos-actions.is-cashier{grid-template-columns:1fr;}
+.pos-waiter-name{font-weight:700; color:var(--ink);}
