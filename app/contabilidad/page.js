@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useBranch } from '@/context/BranchContext';
 import { useSettings } from '@/context/SettingsContext';
 import AccountingView, { useAccounting } from '@/components/AccountingView';
+import InvoiceSettingsForm from '@/components/InvoiceSettingsForm';
+import EcfSetup from '@/components/EcfSetup';
 import { accountingCsv, CSV_FILES, downloadCsv } from '@/lib/accounting';
 import { ACC_PERIODS, accRange, accTitle, shiftAnchor } from '@/lib/accountingPeriod';
 import { addDays, dayKey } from '@/lib/stats';
@@ -23,6 +25,7 @@ export default function ContabilidadPage() {
   const [to, setTo] = useState(today);
   const [branch, setBranch] = useState(''); // '' = todas
   const [csvOpen, setCsvOpen] = useState(false);
+  const [view, setView] = useState('reportes'); // reportes | facturacion
   const csvRef = useRef(null);
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function ContabilidadPage() {
             <p className="eyebrow">{settings.brand_name}</p>
             <h2>Contabilidad</h2>
           </div>
-          <div className="acc-actions">
+          {view === 'reportes' && <div className="acc-actions">
             <button type="button" className="acc-btn" onClick={() => router.push(pdfHref)} disabled={!acc}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5" /></svg>
               Reporte PDF
@@ -76,9 +79,26 @@ export default function ContabilidadPage() {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </div>
 
+        <div className="acc-views" role="tablist" aria-label="Contabilidad">
+          <button type="button" role="tab" aria-selected={view === 'reportes'} className={view === 'reportes' ? 'on' : ''} onClick={() => setView('reportes')}>Reportes</button>
+          <button type="button" role="tab" aria-selected={view === 'facturacion'} className={view === 'facturacion' ? 'on' : ''} onClick={() => setView('facturacion')}>Facturación</button>
+        </div>
+
+        {view === 'facturacion' ? (
+          <div className="acc-billing">
+            <section className="acc-card">
+              <h3>Datos fiscales</h3>
+              <InvoiceSettingsForm />
+            </section>
+            <section className="acc-card">
+              <h3>Facturación electrónica (e-CF)</h3>
+              <EcfSetup />
+            </section>
+          </div>
+        ) : (<>
         <div className="acc-controls">
           <div className="acc-seg" role="tablist" aria-label="Periodo">
             {ACC_PERIODS.map((p) => <button key={p.id} type="button" role="tab" aria-selected={period === p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>)}
@@ -106,6 +126,7 @@ export default function ContabilidadPage() {
         {error ? <div className="form-msg show error">No se pudo cargar la contabilidad: {error}</div>
           : loading && !acc ? <p className="empty-note">Cargando…</p>
           : <div className={loading ? 'acc-loading' : ''}><AccountingView acc={acc} /></div>}
+        </>)}
       </div>
     </section>
   );

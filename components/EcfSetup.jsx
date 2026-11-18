@@ -168,7 +168,7 @@ export default function EcfSetup() {
               <div><dt>RNC</dt><dd>{settings.business_rnc || <em>Falta</em>}</dd></div>
               <div><dt>Dirección</dt><dd>{settings.address || <em>Falta</em>}</dd></div>
             </dl>
-            {!dataOk && <p className="ecf-note">Complétalos en <b>Facturación</b> (razón social y RNC) y en <b>Contacto y horario</b> (dirección). Deben ser los mismos que tiene la DGII.</p>}
+            {!dataOk && <p className="ecf-note">Complétalos en <b>Datos fiscales</b>. Deben ser los mismos que tiene la DGII.</p>}
           </div>
         </li>
 
