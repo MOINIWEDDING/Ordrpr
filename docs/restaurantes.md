@@ -177,6 +177,7 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 | `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
 | `20261119000000_equipo_pin_tiempos_contabilidad.sql` | Equipo con PIN y aparatos del local; tiempos de los camareros con strikes; rol de contador con lectura de facturas para la contabilidad. |
+| `20261118120000_cobro_por_persona.sql` | Cada quien paga su parte desde su teléfono (gift card al instante; efectivo, tarjeta o transferencia con aviso al camarero), varias facturas por cuenta y, al cobrar, los pedidos quedan servidos. |
 | `20261118000000_punto_de_venta.sql` | Punto de venta: roles de cajero, camarero y cocina; cuentas abiertas por mesa; facturas; estrellas a los camareros; impresoras por internet; ingredientes, estación y agotado en los productos. |
 
 La base del restaurante original ya tenía todo esto; su historial de migraciones quedó marcado como al día, así que el Action no vuelve a aplicarle nada.
