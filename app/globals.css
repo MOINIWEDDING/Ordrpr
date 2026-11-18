@@ -2504,3 +2504,53 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
 .team-device-list li span{display:flex; flex-direction:column; gap:2px; font-size:14px;}
 .team-device-list small{font-size:12px; color:var(--ink-soft);}
 .team-device-list button{border:none; border-radius:100px; padding:7px 12px; background:var(--cream-2); font-family:var(--font-ui); font-size:12.5px; font-weight:700; cursor:pointer;}
+
+/* ---------- Tiempos del camarero ---------- */
+.eta-list{margin:4px 0 18px; display:flex; flex-direction:column; gap:8px;}
+.eta-list h3{font-size:15px; margin-bottom:2px;}
+.eta-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:12px 12px 12px 16px; border-radius:18px; background:#fff; border:1.5px solid var(--amber-soft);}
+.eta-row.is-mine{border-color:var(--ink);}
+.eta-row-name{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:0; border:none; background:none; text-align:left; cursor:pointer; color:var(--ink);}
+.eta-row-name b{font-family:var(--font-display); font-size:17px; font-weight:600;}
+.eta-row-name span{font-size:12.5px; font-weight:700; color:var(--amber-deep);}
+.eta-pick{display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+.eta-pick > span{font-family:var(--font-ui); font-size:12.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); margin-right:2px;}
+.eta-pick button{display:inline-flex; align-items:baseline; gap:2px; min-width:48px; height:42px; justify-content:center; padding:0 10px; border:1.5px solid rgba(36,28,19,.12); border-radius:14px; background:var(--cream); font-family:var(--font-display); font-size:17px; font-weight:600; color:var(--ink); cursor:pointer;}
+.eta-pick button small{font-family:var(--font-ui); font-size:10.5px; font-weight:700; color:var(--ink-soft);}
+.eta-pick button:active{background:var(--ink); color:var(--cream);}
+.eta-pick.is-compact button{min-width:44px; height:38px; font-size:15.5px;}
+.eta-run{display:flex; align-items:center; gap:10px; padding:6px 6px 6px 14px; border-radius:100px; background:var(--ink); color:var(--cream);}
+.eta-run.is-soon{background:var(--amber);}
+.eta-run-time{font-family:var(--font-display); font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; min-width:52px;}
+.eta-run-label{font-size:12.5px; font-weight:700; opacity:.8;}
+.eta-run button{height:36px; padding:0 14px; border:none; border-radius:100px; background:var(--cream); color:var(--ink); font-family:var(--font-ui); font-size:13px; font-weight:800; cursor:pointer;}
+.eta-in-panel{margin-top:10px;}
+.eta-in-panel .eta-pick{padding:12px; border-radius:16px; background:var(--cream-2);}
+
+.eta-alert{position:fixed; left:12px; right:12px; bottom:calc(var(--tab-h) + var(--safe-b) + 16px); z-index:400; max-width:460px; margin:0 auto; padding:16px; border-radius:24px; background:var(--ink); color:var(--cream); box-shadow:0 24px 50px -20px rgba(0,0,0,.6);}
+.eta-alert-top{display:flex; align-items:center; gap:14px;}
+.eta-alert-top > div{display:flex; flex-direction:column; gap:2px;}
+.eta-alert-top b{font-family:var(--font-display); font-size:18px; font-weight:600;}
+.eta-alert-top span{font-size:13.5px; color:rgba(251,248,242,.7);}
+.eta-alert-time{flex-shrink:0; display:flex; align-items:center; justify-content:center; width:72px; height:72px; border-radius:50%; background:var(--amber); color:#fff; font-family:var(--font-display); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums;}
+.eta-alert-actions{display:grid; grid-template-columns:repeat(3, 1fr) 1.4fr; gap:6px; margin-top:14px;}
+.eta-alert-actions button{height:46px; border:none; border-radius:14px; background:rgba(251,248,242,.1); color:var(--cream); font-family:var(--font-ui); font-size:14px; font-weight:800; cursor:pointer;}
+.eta-alert-actions button.is-done{background:var(--cream); color:var(--ink);}
+
+.eta-red{position:fixed; inset:0; z-index:500; display:flex; flex-direction:column; justify-content:space-between; padding:max(40px, env(safe-area-inset-top)) 22px calc(28px + var(--safe-b)); background:#B3261E; color:#fff; animation:etaPulse 1s ease-in-out infinite alternate;}
+@keyframes etaPulse{ from{ background:#9E1F18; } to{ background:#D33A2C; } }
+.eta-red-body{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px;}
+.eta-red-table{font-family:var(--font-ui); font-size:15px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; opacity:.85;}
+.eta-red-time{font-family:var(--font-display); font-size:clamp(96px, 30vw, 200px); font-weight:600; line-height:.9; letter-spacing:-.04em; font-variant-numeric:tabular-nums;}
+.eta-red-label{font-size:18px; font-weight:700; opacity:.9;}
+.eta-red-actions{display:flex; flex-direction:column; gap:10px; width:100%; max-width:480px; margin:0 auto;}
+.eta-red-actions button{height:56px; border:2px solid rgba(255,255,255,.5); border-radius:100px; background:transparent; color:#fff; font-family:var(--font-ui); font-size:16px; font-weight:800; cursor:pointer;}
+.eta-red-actions button.is-big{height:72px; border:none; background:#fff; color:#B3261E; font-size:20px;}
+@media (prefers-reduced-motion: reduce){ .eta-red{animation:none;} }
+.mimesa-banner.is-eta{display:flex; align-items:center; gap:12px; background:var(--ink); color:var(--cream);}
+.mimesa-banner.is-eta b{font-family:var(--font-display); font-size:22px; font-weight:600; white-space:nowrap;}
+.mimesa-banner.is-eta span{font-size:14px;}
+.eta-pick.is-compact{flex-wrap:nowrap; gap:4px;}
+.eta-pick.is-compact > span{display:none;}
+.eta-pick.is-compact button{min-width:0; flex:1 1 0; padding:0 8px;}
+.eta-row .eta-pick.is-compact{flex:1 1 220px;}

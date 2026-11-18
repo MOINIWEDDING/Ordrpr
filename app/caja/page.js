@@ -47,6 +47,7 @@ export default function CajaPage() {
 
   const load = useCallback(async () => {
     if (!BARRO_CONFIGURED || !branch) return;
+    await sb.rpc('tab_eta_sweep', { branch_input: branch }); // los tiempos vencidos se vuelven strikes
     const { data: t, error: err } = await sb.from('tabs').select('*').eq('branch', branch).in('status', ['open', 'bill']);
     if (err) { setError(/tabs|schema cache/i.test(err.message || '') ? 'Falta actualizar la base de datos de este restaurante para usar la caja.' : err.message); return; }
     setError('');

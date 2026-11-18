@@ -113,8 +113,17 @@ export default function MiMesaPage() {
           <ClosedTab tab={tab} active={active} />
         ) : (
           <>
-            {tab.status === 'bill' && <div className="mimesa-banner">Pediste la cuenta: en un momento te la traen.</div>}
-            {tab.call_waiter_at && tab.status !== 'bill' && <div className="mimesa-banner soft">Llamaste al camarero a las {timeOf(tab.call_waiter_at)}.</div>}
+            {tab.eta_at ? (
+              <div className="mimesa-banner is-eta">
+                <b>{Math.max(1, Math.ceil((new Date(tab.eta_at).getTime() - Date.now()) / 60000))} min</b>
+                <span>{tab.eta_name || 'Tu camarero'} {tab.eta_kind === 'bill' ? 'te trae la cuenta' : 'viene a tu mesa'}</span>
+              </div>
+            ) : (
+              <>
+                {tab.status === 'bill' && <div className="mimesa-banner">Pediste la cuenta: en un momento te la traen.</div>}
+                {tab.call_waiter_at && tab.status !== 'bill' && <div className="mimesa-banner soft">Llamaste al camarero a las {timeOf(tab.call_waiter_at)}.</div>}
+              </>
+            )}
 
             <div className="mimesa-actions">
               <Link href="/menu" className="btn btn-amber">Pedir más</Link>

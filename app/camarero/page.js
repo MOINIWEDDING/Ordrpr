@@ -16,6 +16,7 @@ import { sendToPrinters } from '@/lib/print/send';
 import ProductPicker, { TicketDraft, addLine, ordersFromLines } from '@/components/ProductPicker';
 import Modal from '@/components/Modal';
 import StaffPayments from '@/components/TabPayments';
+import EtaWatcher, { EtaControls, pendingKind } from '@/components/WaiterEta';
 
 // El camarero: sus mesas, lo que está listo para servir y la carta con fotos grandes, precio e
 // ingredientes para tomar pedidos por persona y mandarlos a la cocina.
@@ -44,6 +45,7 @@ export default function CamareroPage() {
 
   const load = useCallback(async () => {
     if (!BARRO_CONFIGURED || !branch) return;
+    await sb.rpc('tab_eta_sweep', { branch_input: branch }); // los tiempos vencidos se vuelven strikes
     const { data: t, error: err } = await sb.from('tabs').select('*').eq('branch', branch).in('status', ['open', 'bill']);
     if (err) { setError(/tabs|schema cache/i.test(err.message || '') ? 'Falta actualizar la base de datos de este restaurante.' : err.message); return; }
     setError('');
@@ -79,6 +81,8 @@ export default function CamareroPage() {
   }
 
   if (!profile || !canUsePos) return null;
+  // mesas que llaman o piden la cuenta (las mías, las sin camarero y, en «Todas», las de todos)
+  const waiting = tabs.filter((t) => (pendingKind(t) || t.eta_at) && (!onlyMine || !t.waiter_id || t.waiter_id === me || t.eta_by === me));
   const shownTables = tables.filter((tb) => !onlyMine || (tabByTable[tb.id] && tabByTable[tb.id].waiter_id === me));
   const openTable = tables.find((t) => t.id === openTableId);
   const business = { brand_name: settings.brand_name, legal_name: settings.business_legal_name, rnc: settings.business_rnc, address: settings.address, phone: settings.phone, logo_url: settings.logo_url, currency_symbol: settings.currency_symbol, currency_position: settings.currency_position };
@@ -97,6 +101,21 @@ export default function CamareroPage() {
           </div>
         </div>
         {error && <div className="form-msg show error">{error}</div>}
+
+        {waiting.length > 0 && (
+          <div className="eta-list">
+            <h3>Te esperan</h3>
+            {waiting.map((t) => (
+              <div key={t.id} className={`eta-row${t.eta_at && t.eta_by === me ? ' is-mine' : ''}`}>
+                <button type="button" className="eta-row-name" onClick={() => setOpenTableId(t.table_id)}>
+                  <b>{t.table_label}</b>
+                  <span>{(t.eta_kind || pendingKind(t)) === 'bill' ? 'Pide la cuenta' : 'Te llamó'}</span>
+                </button>
+                <EtaControls tab={t} me={me} onChanged={load} showToast={showToast} compact />
+              </div>
+            ))}
+          </div>
+        )}
 
         {ready.length > 0 && (
           <div className="ready-list">
@@ -145,11 +164,13 @@ export default function CamareroPage() {
           onClose={() => setOpenTableId(null)} onChanged={load} showToast={showToast}
         />
       )}
+      <EtaWatcher tabs={tabs} me={me} branch={branch} onChanged={load} showToast={showToast} />
     </section>
   );
 }
 
 function WaiterTable({ table, tab, items, categories, charges, taxPercent, business, branch, onClose, onChanged, showToast }) {
+  const { profile } = useAuth();
   const [detail, setDetail] = useState(null);
   const [lines, setLines] = useState([]);
   const [person, setPerson] = useState('');
@@ -230,6 +251,11 @@ function WaiterTable({ table, tab, items, categories, charges, taxPercent, busin
                 <span>{detail.status === 'bill' ? 'Pidieron la cuenta' : 'La mesa te llamó'}</span>
                 {detail.call_waiter_at && <button type="button" onClick={() => staff('clear_call')}>Atendido</button>}
                 {detail.status === 'bill' && <button type="button" onClick={printBill}>Imprimir prefactura</button>}
+              </div>
+            )}
+            {(detail.call_waiter_at || detail.status === 'bill' || detail.eta_at) && (
+              <div className="eta-in-panel">
+                <EtaControls tab={detail} me={profile.id} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
               </div>
             )}
             <StaffPayments tab={detail} onChanged={() => { onChanged(); loadDetail(); }} showToast={showToast} />
