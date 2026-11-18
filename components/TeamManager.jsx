@@ -153,6 +153,9 @@ export default function TeamManager() {
                       {ratings[r.user_id].last && <q>{ratings[r.user_id].last.comment}</q>}
                     </span>
                   )}
+                  {!r.pending && st.length === 0 && ['camarero', 'cajero', 'comensal'].includes(r.role) && (
+                    <span className="team-strikes is-zero">0 strikes</span>
+                  )}
                   {st.length > 0 && (
                     <button type="button" className="team-strikes" onClick={() => setOpenStrikes(openStrikes === r.user_id ? null : r.user_id)} aria-expanded={openStrikes === r.user_id}>
                       <span className="team-strike-dots" aria-hidden="true">{st.slice(0, 5).map((s) => <i key={s.id} />)}</span>
