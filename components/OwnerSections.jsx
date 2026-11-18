@@ -102,7 +102,7 @@ export function ownerSections({ onGift }) {
         { id: 'colors', title: 'Colores', desc: 'Los colores de botones, fondos y textos.', render: () => <ThemeEditor /> },
         { id: 'branches', title: 'Sucursales', desc: 'Los locales donde atiendes.', render: () => <BranchesManager /> },
         { id: 'team', title: 'Equipo', desc: 'Cajeros, camareros, cocina y dueños, con las estrellas de cada camarero.', render: () => <TeamManager /> },
-        { id: 'invoicing', title: 'Facturación', desc: 'Razón social, RNC y nota al pie de tus facturas.', render: () => <InvoiceSettingsForm /> },
+        { id: 'invoicing', title: 'Datos fiscales', desc: 'Razón social, RNC, dirección fiscal y nota al pie de tus facturas.', render: () => <InvoiceSettingsForm /> },
         { id: 'ecf', title: 'Facturación electrónica (e-CF)', desc: 'Conecta tu negocio con la DGII para emitir comprobantes electrónicos.', render: () => <EcfSetup /> },
         { id: 'printers', title: 'Impresoras', desc: 'Impresoras por internet para comandas, prefacturas y facturas.', render: () => <PrinterManager /> },
         { id: 'contact', title: 'Contacto y horario', desc: 'Dirección, teléfono, WhatsApp, redes y horario.', render: () => <BrandSettingsForm group="contact" /> },

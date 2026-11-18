@@ -161,7 +161,7 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 
 ## Facturación electrónica (e-CF) con Alanube
 
-Cada dueño lo hace solo en **Cuenta → Tu negocio → Facturación electrónica (e-CF)**; nosotros no configuramos nada por restaurante (solo `ALANUBE_TOKEN` en Vercel, igual para todos):
+Lo hace el dueño (en **Cuenta → Tu negocio → Facturación electrónica (e-CF)**) o el contador (en **Contabilidad → Facturación**); nosotros no configuramos nada por restaurante (solo `ALANUBE_TOKEN` en Vercel, igual para todos):
 
 1. **Datos del negocio:** razón social y RNC (en Facturación) y dirección (en Contacto), iguales a los de la DGII.
 2. **Certificado digital:** sube su .p12/.pfx y la contraseña. La app da de alta al restaurante en Alanube como empresa asociada de Ordrpr. El certificado y la contraseña van directo a Alanube; aquí no se guardan.
@@ -191,6 +191,7 @@ Sin `ALANUBE_TOKEN` todo se simula (modo de prueba) para ver el proceso. Pendien
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 | `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
+| `20261121000000_contabilidad_facturacion.sql` | El contador también maneja los datos fiscales (razón social, RNC, dirección y nota al pie) y toda la facturación electrónica. |
 | `20261120000000_facturacion_electronica.sql` | Facturación electrónica: configuración e-CF del restaurante, secuencias e-NCF y estado de cada factura ante la DGII. |
 | `20261119000000_equipo_pin_tiempos_contabilidad.sql` | Equipo con PIN y aparatos del local; tiempos de los camareros con strikes; rol de contador con lectura de facturas para la contabilidad. |
 | `20261118120000_cobro_por_persona.sql` | Cada quien paga su parte desde su teléfono (gift card al instante; efectivo, tarjeta o transferencia con aviso al camarero), varias facturas por cuenta y, al cobrar, los pedidos quedan servidos. |

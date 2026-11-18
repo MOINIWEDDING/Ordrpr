@@ -2,6 +2,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { useSettings } from '@/context/SettingsContext';
+import { useMenuItems } from '@/hooks/useMenuItems';
+import { useTaxSettings } from '@/hooks/useTaxSettings';
+import { useBranch } from '@/context/BranchContext';
+import { Factura } from '@/components/Receipt';
+import Modal from '@/components/Modal';
+import { printReceipt } from '@/lib/printReceipt';
 
 const ORDER = ['nuevo', 'conectado', 'postulado', 'certificando', 'certificado', 'activo', 'pausado'];
 const reached = (status, step) => ORDER.indexOf(status === 'pausado' ? 'activo' : status) >= ORDER.indexOf(step);
@@ -38,6 +44,7 @@ export default function EcfSetup() {
   const [certPass, setCertPass] = useState('');
   const [seqForm, setSeqForm] = useState({ type: '32', from: '1', to: '', expires: '' });
   const [copied, setCopied] = useState('');
+  const [preview, setPreview] = useState(null); // '32' | '31' | null
 
   const load = useCallback(async () => {
     if (!BARRO_CONFIGURED) return;
@@ -123,6 +130,13 @@ export default function EcfSetup() {
     setMsg({ type: 'ok', text: on ? 'Activado: cada factura nueva se envía sola a la DGII.' : 'Pausado: las facturas nuevas no se envían a la DGII.' });
   });
 
+  const demo = (action) => run(`demo-${action}`, async () => {
+    const res = await api('/api/ecf/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || 'No se pudo.');
+    setMsg({ type: 'ok', text: action === 'reset' ? 'Prueba reiniciada: puedes recorrer los pasos otra vez.' : 'Listo: todo quedó configurado de prueba. Cada factura nueva sale como e-CF simulado.' });
+  });
+
   const resend = () => run('resend', async () => {
     const res = await fetch('/api/ecf/emitir', { method: 'POST' });
     const out = await res.json().catch(() => ({}));
@@ -157,7 +171,21 @@ export default function EcfSetup() {
         <b>{!env ? '…' : env.env === 'simulado' ? 'Modo de prueba' : env.env === 'sandbox' ? 'Sandbox de Alanube' : 'Producción'}</b>
         <span>{!env ? '' : env.env === 'simulado' ? 'Todavía no hay token de Alanube: cada paso se simula para que veas el proceso. Nada llega a la DGII.' : env.env === 'sandbox' ? 'Conectado al ambiente de pruebas de Alanube y la DGII.' : 'Los comprobantes son reales ante la DGII.'}</span>
       </div>
+      {env && env.env === 'simulado' && (
+        <div className="ecf-quick">
+          <div>
+            <b>Prueba rápida</b>
+            <span>Sin documentos ni certificado: deja todo configurado de un toque o mira cómo sale una factura electrónica.</span>
+          </div>
+          <div className="ecf-quick-actions">
+            {status !== 'activo' && <button type="button" className="btn btn-amber btn-sm" onClick={() => demo('setup')} disabled={!!busy}>{busy === 'demo-setup' ? 'Configurando…' : 'Configurar todo de prueba'}</button>}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreview('32')}>Ver factura de prueba</button>
+            {(ecf.company_id || status !== 'nuevo') && <button type="button" className="ecf-quick-reset" onClick={() => { if (window.confirm('¿Reiniciar la prueba? Se borran la empresa simulada, los pasos y las secuencias.')) demo('reset'); }} disabled={!!busy}>Reiniciar prueba</button>}
+          </div>
+        </div>
+      )}
       {msg && <div className={`form-msg show ${msg.type}`}>{msg.text}</div>}
+      {preview && <SampleInvoice type={preview} onType={setPreview} onClose={() => setPreview(null)} ecf={ecf} />}
 
       <ol className="ecf-steps">
         <li className={`ecf-step is-${stateOf(0)}`}>
@@ -168,7 +196,7 @@ export default function EcfSetup() {
               <div><dt>RNC</dt><dd>{settings.business_rnc || <em>Falta</em>}</dd></div>
               <div><dt>Dirección</dt><dd>{settings.address || <em>Falta</em>}</dd></div>
             </dl>
-            {!dataOk && <p className="ecf-note">Complétalos en <b>Facturación</b> (razón social y RNC) y en <b>Contacto y horario</b> (dirección). Deben ser los mismos que tiene la DGII.</p>}
+            {!dataOk && <p className="ecf-note">Complétalos en <b>Datos fiscales</b>. Deben ser los mismos que tiene la DGII.</p>}
           </div>
         </li>
 
@@ -335,5 +363,45 @@ function StepHead({ n, title, done }) {
       <span className="ecf-dot" aria-hidden="true">{done ? <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg> : n}</span>
       <b>{title}</b>
     </div>
+  );
+}
+
+// Una factura electrónica de ejemplo (no se guarda): productos del menú, impuestos de la sucursal y un
+// sello simulado de la DGII, para ver cómo le sale al cliente un E32 o un E31.
+function SampleInvoice({ type, onType, onClose, ecf }) {
+  const { settings } = useSettings();
+  const { items } = useMenuItems();
+  const { branch } = useBranch();
+  const { charges } = useTaxSettings(branch);
+  const picks = (items || []).slice(0, 3);
+  const lines = (picks.length ? picks : [{ id: 'a', name: 'Plato del día', price: 650 }, { id: 'b', name: 'Jugo natural', price: 180 }])
+    .map((it, i) => ({ id: it.id, name: it.name, price: Number(it.price) || 0, qty: i === 0 ? 2 : 1, options: [] }));
+  const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  const taxLines = (charges && charges.length ? charges : [{ label: 'ITBIS', percent: 18 }, { label: 'Ley', percent: 10 }])
+    .map((c) => ({ label: c.label, percent: Number(c.percent) || 0, amount: Math.round((subtotal * (Number(c.percent) || 0)) / 100) }));
+  const total = subtotal + taxLines.reduce((s, l) => s + l.amount, 0);
+  const rnc = String(settings.business_rnc || '131000000').replace(/\D/g, '');
+  const encf = `E${type}${String(1).padStart(10, '0')}`;
+  const invoice = {
+    number: 1, kind: 'order', issued_at: new Date().toISOString(), table_label: 'Mesa 1', customer_name: 'Cliente de prueba',
+    business: { brand_name: settings.brand_name, legal_name: settings.business_legal_name, rnc: settings.business_rnc, address: settings.address, phone: settings.phone, logo_url: settings.logo_url, footer: settings.invoice_footer },
+    fiscal: type === '31' ? { rnc: '101010101', name: 'Empresa Cliente SRL' } : {},
+    items: lines, subtotal, discount: 0, tax_lines: taxLines, tax_total: total - subtotal, tip: 0, total,
+    payments: [{ method: 'tarjeta', amount: total }], status: 'emitida',
+    ncf: encf, ecf_type: type, ecf_status: 'aceptado', ecf_security_code: 'PRUEBA', ecf_signed_at: new Date().toISOString(),
+    ecf_stamp_url: `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=${rnc}&encf=${encf}&codigoseguridad=PRUEBA`,
+  };
+  return (
+    <Modal onClose={onClose}>
+      <div className="pos-receipt-modal ecf-sample">
+        <div className="ecf-seq-types ecf-sample-types" role="radiogroup" aria-label="Tipo de comprobante">
+          <button type="button" role="radio" aria-checked={type === '32'} className={type === '32' ? 'on' : ''} onClick={() => onType('32')}>E32 · Consumo</button>
+          <button type="button" role="radio" aria-checked={type === '31'} className={type === '31' ? 'on' : ''} onClick={() => onType('31')}>E31 · Crédito fiscal</button>
+        </div>
+        <div className="print-target"><Factura invoice={invoice} /></div>
+        <p className="ecf-note">Ejemplo de cómo sale una factura{ecf && ecf.company_id ? '' : ' (todavía sin configurar)'}. No se guarda ni se envía a la DGII.</p>
+        <button type="button" className="btn btn-ghost btn-block" onClick={printReceipt}>Imprimir o guardar en PDF</button>
+      </div>
+    </Modal>
   );
 }

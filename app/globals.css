@@ -2758,3 +2758,38 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
 .rc-ecf img{width:110px; height:110px;}
 .rc-ecf b{font-size:11.5px;}
 .rc-ecf-status{display:inline-block; padding:2px 8px; border:1px solid currentColor; border-radius:100px; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
+.acc-views{display:inline-flex; padding:4px; margin-bottom:18px; border-radius:100px; background:var(--ink);}
+.acc-views button{border:none; border-radius:100px; padding:10px 20px; background:transparent; font-family:var(--font-ui); font-size:14.5px; font-weight:800; color:rgba(251,248,242,.65); cursor:pointer;}
+.acc-views button.on{background:var(--cream); color:var(--ink);}
+.acc-billing{display:grid; grid-template-columns:1fr; gap:14px; align-items:start;}
+@media (min-width:960px){ .acc-billing{grid-template-columns:minmax(300px, .8fr) 1.4fr;} }
+.fiscal-form{display:flex; flex-direction:column; gap:10px;}
+.fiscal-form .btn{align-self:flex-start; margin-top:4px;}
+
+/* ---------- Menú de escritorio con íconos ---------- */
+@media (min-width:640px){
+  nav.links{gap:6px; align-items:center;}
+  nav.links a.nav-icon{position:relative; display:flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; border-radius:14px; color:var(--ink-soft); transition:background .18s var(--ease), color .18s var(--ease);}
+  nav.links a.nav-icon svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;}
+  nav.links a.nav-icon:hover, nav.links a.nav-icon:focus-visible{background:rgba(36,28,19,.07); color:var(--ink);}
+  nav.links a.nav-icon.current{background:var(--ink); color:var(--cream);}
+  nav.links a.nav-icon.current::after{display:none;}
+  nav.links a.nav-icon::before{content:attr(data-label); position:absolute; top:calc(100% + 8px); left:50%; transform:translate(-50%, -4px); padding:6px 10px; border-radius:10px; background:var(--ink); color:var(--cream); font-size:12px; font-weight:700; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s var(--ease), transform .15s var(--ease); z-index:20;}
+  nav.links a.nav-icon:hover::before, nav.links a.nav-icon:focus-visible::before{opacity:1; transform:translate(-50%, 0);}
+  .nav-icon-badge{position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 4px; border-radius:100px; background:var(--amber); color:var(--on-amber); font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--cream);}
+  body.kds-mode #siteHeader .links a.nav-icon{color:rgba(243,236,221,.75);}
+  body.kds-mode #siteHeader .links a.nav-icon.current{background:rgba(243,236,221,.15); color:#fff;}
+}
+@media (prefers-reduced-motion: reduce){ nav.links a.nav-icon, nav.links a.nav-icon::before{transition:none;} }
+.ecf-quick{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:18px; background:var(--ink); color:var(--cream);}
+.ecf-quick > div:first-child{display:flex; flex-direction:column; gap:3px; flex:1 1 240px;}
+.ecf-quick b{font-family:var(--font-display); font-size:16px; font-weight:600;}
+.ecf-quick span{font-size:13px; line-height:1.45; color:rgba(251,248,242,.7);}
+.ecf-quick-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.ecf-quick .btn-ghost{background:rgba(251,248,242,.12); color:var(--cream); border-color:transparent;}
+.ecf-quick-reset{border:none; background:none; padding:6px 4px; font-family:var(--font-ui); font-size:12.5px; font-weight:700; color:rgba(251,248,242,.7); text-decoration:underline; text-underline-offset:3px; cursor:pointer;}
+.ecf-sample-types{align-self:center;}
+.ecf-sample .ecf-note{text-align:center;}
+.device-owner-bar{position:fixed; left:50%; bottom:calc(var(--tab-h) + var(--safe-b) + 14px); transform:translateX(-50%); z-index:450; display:flex; align-items:center; gap:12px; max-width:calc(100% - 24px); padding:8px 8px 8px 16px; border-radius:100px; background:var(--amber); color:var(--on-amber); font-size:13px; box-shadow:0 14px 30px -14px rgba(0,0,0,.5);}
+.device-owner-bar button{flex-shrink:0; height:34px; padding:0 14px; border:none; border-radius:100px; background:#fff; color:var(--amber-deep); font-family:var(--font-ui); font-size:13px; font-weight:800; cursor:pointer;}
+@media (min-width:640px){ .device-owner-bar{bottom:20px;} }
