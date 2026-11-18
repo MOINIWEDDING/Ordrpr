@@ -7,6 +7,7 @@ import { useSettings } from '@/context/SettingsContext';
 import AccountingView, { useAccounting } from '@/components/AccountingView';
 import InvoiceSettingsForm from '@/components/InvoiceSettingsForm';
 import EcfSetup from '@/components/EcfSetup';
+import InvoiceArchive from '@/components/InvoiceArchive';
 import { accountingCsv, CSV_FILES, downloadCsv } from '@/lib/accounting';
 import { ACC_PERIODS, accRange, accTitle, shiftAnchor } from '@/lib/accountingPeriod';
 import { addDays, dayKey } from '@/lib/stats';
@@ -84,10 +85,21 @@ export default function ContabilidadPage() {
 
         <div className="acc-views" role="tablist" aria-label="Contabilidad">
           <button type="button" role="tab" aria-selected={view === 'reportes'} className={view === 'reportes' ? 'on' : ''} onClick={() => setView('reportes')}>Reportes</button>
+          <button type="button" role="tab" aria-selected={view === 'facturas'} className={view === 'facturas' ? 'on' : ''} onClick={() => setView('facturas')}>Facturas</button>
           <button type="button" role="tab" aria-selected={view === 'facturacion'} className={view === 'facturacion' ? 'on' : ''} onClick={() => setView('facturacion')}>Facturación</button>
         </div>
 
-        {view === 'facturacion' ? (
+        {view === 'facturas' ? (
+          <>
+            {branches.length > 1 && (
+              <div className="acc-branches arc-branches" role="radiogroup" aria-label="Sucursal">
+                <button type="button" role="radio" aria-checked={!branch} className={!branch ? 'on' : ''} onClick={() => setBranch('')}>Todas</button>
+                {branches.map((b) => <button key={b.id} type="button" role="radio" aria-checked={branch === b.id} className={branch === b.id ? 'on' : ''} onClick={() => setBranch(b.id)}>{b.full}</button>)}
+              </div>
+            )}
+            <InvoiceArchive branch={branch || null} branchName={branchName} />
+          </>
+        ) : view === 'facturacion' ? (
           <div className="acc-billing">
             <section className="acc-card">
               <h3>Datos fiscales</h3>

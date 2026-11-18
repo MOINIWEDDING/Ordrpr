@@ -15,7 +15,6 @@ import { describeOptions } from '@/lib/productOptions';
 import { ORDER_STATUS, PAY_METHODS, PAY_LABEL, tabTotals, minutesSince, useLiveReload, beep } from '@/lib/pos';
 import StaffPayments from '@/components/TabPayments';
 import { sendToPrinters } from '@/lib/print/send';
-import { printReceipt } from '@/lib/printReceipt';
 import { Prefactura } from '@/components/Receipt';
 import ProductPicker, { TicketDraft, addLine, ordersFromLines } from '@/components/ProductPicker';
 import Modal from '@/components/Modal';
@@ -250,7 +249,7 @@ function TabPanel({ table, tab, tables, tabByTable, items, categories, charges, 
           <div className="pos-receipt-modal">
             <div className="print-target"><Prefactura tab={due} charges={charges} business={business} /></div>
             <div className="pos-row">
-              <button type="button" className="btn btn-ghost" onClick={printReceipt}>Imprimir aquí</button>
+              <a className="btn btn-ghost" href={`/prefactura/${tab.id}`}>Imprimir aquí</a>
               <button type="button" className="btn btn-amber" onClick={printBill}>Enviar a impresora</button>
             </div>
             <button type="button" className="pos-back" onClick={() => setMode('view')}>Volver a la cuenta</button>

@@ -2795,3 +2795,74 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
 @media (min-width:640px){ .device-owner-bar{bottom:20px;} }
 .pos-actions.is-cashier{grid-template-columns:1fr;}
 .pos-waiter-name{font-weight:700; color:var(--ink);}
+
+/* ---------- Archivo de facturas (contabilidad) ---------- */
+.arc{display:flex; flex-direction:column; gap:18px;}
+.arc-top{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;}
+.arc-search{flex:1 1 280px; max-width:420px; margin-top:0;}
+.arc-branches{margin-bottom:14px;}
+.arc-year h3{font-size:15px; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:12px;}
+.arc-folders{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:14px;}
+.arc-folder{display:flex; flex-direction:column;}
+.arc-folder-open{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:3px; padding:22px 16px 14px; margin-top:12px; border:none; border-radius:4px 18px 18px 18px; background:linear-gradient(160deg, var(--tint-manana), #EAD3B0); color:var(--ink); text-align:left; cursor:pointer; box-shadow:0 14px 26px -20px rgba(36,28,19,.6); transition:transform .18s var(--ease);}
+.arc-folder-open:hover{transform:translateY(-2px);}
+.arc-folder-tab{position:absolute; left:0; top:-11px; width:46%; height:14px; border-radius:10px 12px 0 0; background:#EAD3B0;}
+.arc-folder-open b{font-family:var(--font-display); font-size:19px; font-weight:600;}
+.arc-folder-open span:not(.arc-folder-tab){font-size:12.5px; font-weight:700; color:var(--tint-manana-deep);}
+.arc-folder-open strong{margin-top:8px; font-family:var(--font-display); font-size:20px; font-weight:600; font-variant-numeric:tabular-nums;}
+.arc-folder-open small{font-size:11.5px; font-weight:700; color:var(--amber-deep);}
+.arc-folder-dl{display:flex; gap:6px; margin-top:8px;}
+.arc-folder-dl a, .arc-folder-dl button, .arc-day-dl a, .arc-day-dl button{flex:1; display:flex; align-items:center; justify-content:center; height:34px; border:1px solid var(--line); border-radius:100px; background:#fff; color:var(--ink); font-family:var(--font-ui); font-size:12.5px; font-weight:800; cursor:pointer; text-decoration:none;}
+.arc-month{display:flex; flex-direction:column; gap:14px;}
+.arc-month-head{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;}
+.arc-month-head h3{flex:1; font-size:22px;}
+.arc-back{display:inline-flex; align-items:center; gap:4px; border:none; background:none; font-family:var(--font-ui); font-size:14px; font-weight:800; color:var(--ink-soft); cursor:pointer;}
+.arc-back svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;}
+.arc-dl{display:flex; gap:8px;}
+.arc-dl .acc-btn{text-decoration:none;}
+.arc-day{padding:6px 16px 10px; border-radius:20px; background:#fff; border:1px solid var(--line);}
+.arc-day-head{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1.5px solid var(--ink);}
+.arc-day-head > div:first-child{display:flex; flex-direction:column; gap:2px;}
+.arc-day-head b{font-family:var(--font-display); font-size:16px; font-weight:600;}
+.arc-day-head span{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+.arc-day-dl{display:flex; gap:6px; min-width:140px;}
+.arc-rows{list-style:none; margin:0; padding:0;}
+.arc-rows li a{display:grid; grid-template-columns:auto auto 1fr auto auto; align-items:center; gap:4px 14px; padding:11px 0; border-bottom:1px dashed rgba(36,28,19,.12); color:var(--ink); text-decoration:none; font-size:14px;}
+.arc-rows li:last-child a{border-bottom:none;}
+.arc-rows li a:hover{background:var(--cream);}
+.arc-rows li a.is-void{opacity:.55;}
+.arc-no{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; font-weight:800;}
+.arc-when{font-size:12.5px; color:var(--ink-soft); white-space:nowrap;}
+.arc-who{min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.arc-who small{display:block; font-size:11.5px; font-weight:600; color:var(--ink-soft);}
+.arc-tags{display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end;}
+.arc-tags em{font-style:normal; padding:2px 8px; border-radius:100px; font-size:10.5px; font-weight:800; white-space:nowrap;}
+.arc-ncf{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--cream-2);}
+.arc-ecf{background:#FFF1C9; color:#7A5300;}
+.arc-ecf.is-aceptado, .arc-ecf.is-aceptado_obs{background:#E1EADD; color:var(--ok);}
+.arc-ecf.is-rechazado, .arc-ecf.is-error{background:#FBE3DE; color:var(--amber-deep);}
+.arc-total{font-family:var(--font-display); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right;}
+.arc-all{padding:6px 16px 10px; border-radius:20px; background:#fff; border:1px solid var(--line);}
+.arc-more{display:block; margin:12px auto 4px;}
+@media (max-width:700px){
+  .arc-rows li a{grid-template-columns:auto 1fr auto; grid-template-areas:'no who total' 'when tags tags';}
+  .arc-no{grid-area:no;} .arc-who{grid-area:who;} .arc-total{grid-area:total;} .arc-when{grid-area:when;} .arc-tags{grid-area:tags;}
+}
+
+/* todas las facturas de un día o un mes para guardar en PDF */
+.inv-print-page{padding:0 16px 40px; background:var(--cream); min-height:100vh;}
+.inv-print-page > .empty-note{max-width:210mm; margin:40px auto;}
+.inv-print-head{display:flex; flex-direction:column; gap:2px; max-width:210mm; margin:6px auto 18px; padding-bottom:10px; border-bottom:2px solid var(--ink);}
+.inv-print-head b{font-family:var(--font-display); font-size:20px;}
+.inv-print-head span{font-size:13px; color:var(--ink-soft); font-weight:600;}
+.inv-print-grid{max-width:210mm; margin:0 auto; column-count:2; column-gap:8mm;}
+.inv-print-item{break-inside:avoid; margin-bottom:8mm;}
+.inv-print-item .receipt{margin:0 auto; box-shadow:none; border:1px solid rgba(36,28,19,.12);}
+@media (max-width:640px){ .inv-print-grid{column-count:1;} }
+@media print{
+  .inv-print-page{padding:0; background:#fff;}
+  .inv-print-page .rp-toolbar{display:none;}
+  .inv-print-head{margin-top:0;}
+  .inv-print-grid{max-width:none; column-count:2;}
+  .inv-print-item .receipt{border-color:#ccc;}
+}

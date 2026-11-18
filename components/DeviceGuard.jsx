@@ -7,7 +7,7 @@ import { navForRole } from '@/lib/roleNav';
 
 const OWNER_IDLE_MS = 60 * 1000;
 // páginas que se pueden ver en un aparato del local sin sesión (la pantalla del equipo y lo que se imprime)
-const isFree = (p) => p === '/equipo' || p.startsWith('/factura/') || p.startsWith('/impresora/');
+const isFree = (p) => p === '/equipo' || p.startsWith('/factura/') || p.startsWith('/prefactura/') || p.startsWith('/impresora/');
 
 // En un aparato del local (activado para el equipo) nadie se pasea por la app: sin sesión solo está la
 // pantalla del equipo, cada persona solo abre sus pantallas y la sesión del dueño se cierra sola si
