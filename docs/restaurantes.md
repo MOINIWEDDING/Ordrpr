@@ -84,6 +84,8 @@ Si el restaurante no quiere avisos push, sáltate este paso: la app funciona igu
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Llave anon / public de su Supabase |
    | `NEXT_PUBLIC_ONESIGNAL_APP_ID` | App ID de OneSignal (opcional) |
    | `ONESIGNAL_REST_API_KEY` | REST API Key de OneSignal (opcional) |
+   | `ALANUBE_TOKEN` | Token de Alanube de Ordrpr (el mismo para todos los restaurantes). Sin él, la facturación electrónica funciona en **modo de prueba** (todo simulado). |
+   | `ALANUBE_ENV` | `production` para emitir comprobantes reales; vacío = sandbox. |
    | `SUPABASE_SERVICE_ROLE_KEY` | Clave *service_role* de **su** Supabase (Project Settings → API). Hace falta para que el equipo entre con PIN. Solo va aquí, nunca en el código ni en el chat. |
 
 3. **Deploy.** Después, en **Settings → Domains**, conecta su dominio.
@@ -157,6 +159,19 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
    - **Star (CloudPRNT)** o **Epson (Server Direct Print):** copia la dirección que aparece y pégala en la configuración de la impresora. La impresora la consulta sola cada pocos segundos.
    - Las impresoras de cocina y bar reciben las comandas solas. La de caja recibe prefacturas y facturas cuando se envían desde Caja.
 
+## Facturación electrónica (e-CF) con Alanube
+
+Cada dueño lo hace solo en **Cuenta → Tu negocio → Facturación electrónica (e-CF)**; nosotros no configuramos nada por restaurante (solo `ALANUBE_TOKEN` en Vercel, igual para todos):
+
+1. **Datos del negocio:** razón social y RNC (en Facturación) y dirección (en Contacto), iguales a los de la DGII.
+2. **Certificado digital:** sube su .p12/.pfx y la contraseña. La app da de alta al restaurante en Alanube como empresa asociada de Ordrpr. El certificado y la contraseña van directo a Alanube; aquí no se guardan.
+3. **Postulación en la DGII:** en la Oficina Virtual elige a Alanube como proveedor y pega las 3 direcciones que muestra la app.
+4. **Certificación:** «Generar set de pruebas» y «Subir XML para firmar» (la declaración jurada que da la DGII; se descarga firmada para subirla de vuelta).
+5. **Secuencias e-NCF:** los rangos E32, E31 y E34 que autorizó la DGII, con su vencimiento. La app avisa cuando quedan pocos.
+6. **Activar:** desde ahí cada factura se envía sola: **E31** si lleva RNC y **E32** si es de consumo. La factura muestra el e-NCF, el código de seguridad, el QR de la DGII y el estado; Contabilidad cuenta aceptados, en proceso y rechazados.
+
+Sin `ALANUBE_TOKEN` todo se simula (modo de prueba) para ver el proceso. Pendiente de validar en el sandbox de Alanube: cómo va la Ley 10% en el e-CF (hoy como recargo exento) y el formato del webhook.
+
 ## Lo que hay en `supabase/migrations/`
 
 | Archivo | Qué hace |
@@ -176,6 +191,7 @@ Igual que Apple Wallet: sin esto el pase funciona en la página y solo no aparec
 | `20261020180000_pase_de_sellos.sql` | Pase de sellos: el diseño del pase, el pase de cada cliente, cada sello, los premios (códigos personales) y los aparatos con el pase en Apple Wallet. |
 | `20261020210000_usuarios_y_newsletter.sql` | Aceptación del newsletter al registrarse, la lista de usuarios para el dueño (con correos) y los pases a actualizar en Google Wallet. |
 | `20261020230000_newsletter_baja.sql` | Darse de baja del newsletter desde Cuenta o con el enlace personal de cada correo. |
+| `20261120000000_facturacion_electronica.sql` | Facturación electrónica: configuración e-CF del restaurante, secuencias e-NCF y estado de cada factura ante la DGII. |
 | `20261119000000_equipo_pin_tiempos_contabilidad.sql` | Equipo con PIN y aparatos del local; tiempos de los camareros con strikes; rol de contador con lectura de facturas para la contabilidad. |
 | `20261118120000_cobro_por_persona.sql` | Cada quien paga su parte desde su teléfono (gift card al instante; efectivo, tarjeta o transferencia con aviso al camarero), varias facturas por cuenta y, al cobrar, los pedidos quedan servidos. |
 | `20261118000000_punto_de_venta.sql` | Punto de venta: roles de cajero, camarero y cocina; cuentas abiertas por mesa; facturas; estrellas a los camareros; impresoras por internet; ingredientes, estación y agotado en los productos. |

@@ -20,6 +20,7 @@ import EarlyBirdResult from './EarlyBirdResult';
 import { useLoyaltySettings } from '@/lib/loyalty';
 import { useActiveTab, setActiveTab } from '@/lib/activeTab';
 import Link from 'next/link';
+import { kickEcf } from '@/lib/ecf/kick';
 
 const DELIVERY = 0; // no hay delivery; se sirve en el local
 
@@ -325,6 +326,7 @@ export default function CartDrawer() {
       }
       if (error) { setPlaceError('No se pudo enviar el pedido: ' + error.message); setPlacing(false); return; }
       if (orderId) rememberGuestOrder(orderId);
+      kickEcf(); // su factura electrónica sale a la DGII
     }
 
     if (ebOutcome === 'winner' || ebOutcome === 'in_window_no_win') {

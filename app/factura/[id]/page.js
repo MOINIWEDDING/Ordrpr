@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sb, BARRO_CONFIGURED } from '@/lib/supabaseClient';
 import { printReceipt } from '@/lib/printReceipt';
 import { Factura, invoiceNumber } from '@/components/Receipt';
+import { kickEcf } from '@/lib/ecf/kick';
 
 // Una factura: la ve quien la pagó (su cuenta o su pedido), el personal, o quien tiene el código de
 // la cuenta de la mesa (?c=…). Se imprime o se guarda en PDF desde el navegador.
@@ -19,10 +20,21 @@ function FacturaView() {
   useEffect(() => {
     if (!authReady) return;
     if (!BARRO_CONFIGURED) { setState('missing'); return; }
-    sb.rpc('invoice_get', { invoice_input: id, code_input: params.get('c') || null }).then(({ data }) => {
+    let alive = true;
+    let tries = 0;
+    const get = () => sb.rpc('invoice_get', { invoice_input: id, code_input: params.get('c') || null }).then(({ data }) => {
+      if (!alive) return;
       setInvoice(data || null);
       setState(data ? 'ok' : 'missing');
+      // si el comprobante electrónico sigue en camino, se pide el envío y se vuelve a mirar
+      if (data && ['pendiente', 'enviando', 'enviado', 'error'].includes(data.ecf_status) && tries < 4) {
+        tries += 1;
+        kickEcf();
+        setTimeout(get, 2500);
+      }
     });
+    get();
+    return () => { alive = false; };
   }, [id, params, authReady]);
 
   useEffect(() => {
