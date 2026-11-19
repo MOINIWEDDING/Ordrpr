@@ -2992,3 +2992,14 @@ button.orbit-node{border:none; cursor:pointer; display:flex; flex-direction:colu
 .orbit-item span{font-size:clamp(10.5px, 2.8cqi, 14px); font-weight:800; text-align:center; padding:0 6%; line-height:1.1;}
 .orbit-logout{border:none; background:none; color:rgba(243,236,221,.7); font-family:var(--font-ui); font-size:14px; font-weight:800; text-decoration:underline; text-underline-offset:3px; cursor:pointer; padding:10px 14px;}
 .orbit-logout:hover{color:var(--cream-on-dark);}
+/* pulido de los círculos */
+.orbit-ring{position:absolute; width:58%; aspect-ratio:1; border-radius:50%; border:1.5px dashed rgba(243,236,221,.16); transform:translate(-50%,-50%); pointer-events:none; transition:opacity .3s var(--ease);}
+@media (prefers-reduced-motion:no-preference){ .orbit-ring{animation:orbit-spin 60s linear infinite;} }
+@keyframes orbit-spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
+button.orbit-group{transition:filter .2s var(--ease);}
+button.orbit-group:hover{filter:brightness(1.04) saturate(1.08);}
+button.orbit-node:focus-visible, .orbit-item a:focus-visible, .orbit-close:focus-visible, .orbit-logout:focus-visible{outline:3px solid var(--amber); outline-offset:4px;}
+.orbit-group.is-here::after, .orbit-item a.is-here::after{content:''; position:absolute; inset:-7px; border-radius:50%; border:2px solid rgba(243,236,221,.75); pointer-events:none;}
+.orbit-item a{position:relative;}
+.orbit-badge{position:absolute; top:4%; right:4%; min-width:24px; height:24px; padding:0 7px; border-radius:100px; background:var(--amber); color:var(--on-amber); font-style:normal; font-family:var(--font-ui); font-size:12px; font-weight:800; display:grid; place-items:center; box-shadow:0 0 0 3px rgba(29,22,16,.78);}
+.header-brand{font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:50vw;}

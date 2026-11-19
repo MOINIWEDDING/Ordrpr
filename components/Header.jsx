@@ -35,6 +35,9 @@ export default function Header() {
   return (
     <header id="siteHeader" className={solid ? 'solid' : ''}>
       <div className="wrap">
+        {links.length === 0 && (
+          <Link href="/" className="logo header-brand"><span className="dot" />{settings.brand_name}</Link>
+        )}
         <nav className="links">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className={`nav-icon${pathname === l.href || (l.href !== '/' && pathname.startsWith(`${l.href}/`)) ? ' current' : ''}`} aria-label={l.desktop || l.label} data-label={l.desktop || l.label}>
