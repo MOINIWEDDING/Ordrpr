@@ -45,7 +45,7 @@ export function navForRole(role, { showNosotros = true, loyalty = false, activeT
     return {
       tabs: [T.caja, T.ordenes, T.menu, T.estadisticas],
       more: [T.inicio, T.cocina, T.mesas, T.equipo, T.contabilidad, T.promos, T.usuarios],
-      desktop: [T.inicio, T.menu, T.caja, T.ordenes, T.cocina, T.mesas, T.equipo, T.estadisticas, T.contabilidad, T.promos, T.usuarios],
+      desktop: [], // en escritorio todo va en los círculos del botón de la cuenta
     };
   }
   // la caja solo cobra y factura (y vende en el mostrador)

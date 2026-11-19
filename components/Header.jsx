@@ -49,8 +49,9 @@ export default function Header() {
             {count > 0 && <span className="cart-badge">{count}</span>}
           </button>
           {isStaff ? (
-            <button type="button" className="icon-round" aria-label="Tu negocio" aria-haspopup="dialog" aria-expanded={orbit} onClick={() => setOrbit(true)}>
+            <button type="button" className="icon-round" aria-label="Tu negocio" aria-haspopup="dialog" aria-expanded={orbit} onClick={() => setOrbit(true)} style={{ position: 'relative' }}>
               <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
+              {unseenCount > 0 && <span className="cart-badge" aria-label={`${unseenCount} órdenes nuevas`}>{unseenCount > 9 ? '9+' : unseenCount}</span>}
             </button>
           ) : (
             <Link href="/cuenta" className="icon-round" aria-label="Cuenta">
