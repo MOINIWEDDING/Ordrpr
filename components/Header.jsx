@@ -9,11 +9,13 @@ import { useLoyaltySettings } from '@/lib/loyalty';
 import { useActiveTab } from '@/lib/activeTab';
 import { navForRole } from '@/lib/roleNav';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
+import OwnerOrbit from '@/components/OwnerOrbit';
 
 export default function Header() {
   const pathname = usePathname();
   const { count, openDrawer } = useCart();
-  const { profile, userRole } = useAuth();
+  const { profile, userRole, isStaff } = useAuth();
+  const [orbit, setOrbit] = useState(false);
   const activeTab = useActiveTab();
   const { unseenCount } = useOrdersNotify();
   const { settings } = useSettings();
@@ -46,11 +48,19 @@ export default function Header() {
             <svg className="icon" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6" /></svg>
             {count > 0 && <span className="cart-badge">{count}</span>}
           </button>
-          <Link href="/cuenta" className="icon-round" aria-label="Cuenta">
-            <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
-          </Link>
+          {isStaff ? (
+            <button type="button" className="icon-round" aria-label="Tu negocio" aria-haspopup="dialog" aria-expanded={orbit} onClick={() => setOrbit(true)} style={{ position: 'relative' }}>
+              <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
+              {unseenCount > 0 && <span className="cart-badge" aria-label={`${unseenCount} órdenes nuevas`}>{unseenCount > 9 ? '9+' : unseenCount}</span>}
+            </button>
+          ) : (
+            <Link href="/cuenta" className="icon-round" aria-label="Cuenta">
+              <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
+            </Link>
+          )}
         </div>
       </div>
+      {isStaff && <OwnerOrbit open={orbit} onClose={() => setOrbit(false)} />}
     </header>
   );
 }
