@@ -23,7 +23,8 @@ function Stars({ value }) {
 
 const fmtDate = (d) => new Date(d).toLocaleString('es', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
-export default function TeamManager() {
+// section: 'people' (personas y agregar) | 'devices' (aparatos del local) | 'all'
+export default function TeamManager({ section = 'all' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('pin'); // pin | email
@@ -127,6 +128,7 @@ export default function TeamManager() {
   return (
     <div className="team-manager">
       {msg && <div className={`form-msg show ${msg.type}`} style={{ marginBottom: 12 }}>{msg.text}</div>}
+      {section !== 'devices' && <>
       {loading ? null : rows.length === 0 ? (
         <p className="empty-note">Todavía no hay personal.</p>
       ) : (
@@ -237,7 +239,9 @@ export default function TeamManager() {
         )}
       </div>
 
-      <div className="team-devices">
+      </>}
+
+      {section !== 'people' && <div className="team-devices">
         <div className="team-add-head">
           <h4>Aparatos del local</h4>
           <Link href="/equipo" className="team-link">Activar este aparato</Link>
@@ -254,7 +258,7 @@ export default function TeamManager() {
             ))}
           </ul>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
