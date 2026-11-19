@@ -13,7 +13,6 @@ import OrderMessagesManager from '@/components/OrderMessagesManager';
 import BrandSettingsForm from '@/components/BrandSettingsForm';
 import ThemeEditor from '@/components/ThemeEditor';
 import BranchesManager from '@/components/BranchesManager';
-import TeamManager from '@/components/TeamManager';
 import HomeOrderManager from '@/components/HomeOrderManager';
 import CsvImporter from '@/components/CsvImporter';
 import MenuDesignEditor from '@/components/MenuDesignEditor';
@@ -101,7 +100,6 @@ export function ownerSections({ onGift }) {
         { id: 'identity', title: 'Nombre y logo', desc: 'Nombre, eslogan, logo y descripción para Google.', render: () => <BrandSettingsForm group="identity" /> },
         { id: 'colors', title: 'Colores', desc: 'Los colores de botones, fondos y textos.', render: () => <ThemeEditor /> },
         { id: 'branches', title: 'Sucursales', desc: 'Los locales donde atiendes.', render: () => <BranchesManager /> },
-        { id: 'team', title: 'Equipo', desc: 'Cajeros, camareros, cocina y dueños, con las estrellas de cada camarero.', render: () => <TeamManager /> },
         { id: 'invoicing', title: 'Datos fiscales', desc: 'Razón social, RNC, dirección fiscal y nota al pie de tus facturas.', render: () => <InvoiceSettingsForm /> },
         { id: 'ecf', title: 'Facturación electrónica (e-CF)', desc: 'Conecta tu negocio con la DGII para emitir comprobantes electrónicos.', render: () => <EcfSetup /> },
         { id: 'printers', title: 'Impresoras', desc: 'Impresoras por internet para comandas, prefacturas y facturas.', render: () => <PrinterManager /> },
