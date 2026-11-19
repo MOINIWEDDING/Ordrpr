@@ -35,6 +35,9 @@ export default function Header() {
   return (
     <header id="siteHeader" className={solid ? 'solid' : ''}>
       <div className="wrap">
+        {links.length === 0 && (
+          <Link href="/" className="logo header-brand"><span className="dot" />{settings.brand_name}</Link>
+        )}
         <nav className="links">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className={`nav-icon${pathname === l.href || (l.href !== '/' && pathname.startsWith(`${l.href}/`)) ? ' current' : ''}`} aria-label={l.desktop || l.label} data-label={l.desktop || l.label}>
@@ -44,10 +47,10 @@ export default function Header() {
           ))}
         </nav>
         <div className="nav-right">
-          <button type="button" className="icon-round" aria-label="Carrito" onClick={openDrawer} style={{ position: 'relative' }}>
+          {!isStaff && <button type="button" className="icon-round" aria-label="Carrito" onClick={openDrawer} style={{ position: 'relative' }}>
             <svg className="icon" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6" /></svg>
             {count > 0 && <span className="cart-badge">{count}</span>}
-          </button>
+          </button>}
           {isStaff ? (
             <button type="button" className="icon-round" aria-label="Tu negocio" aria-haspopup="dialog" aria-expanded={orbit} onClick={() => setOrbit(true)} style={{ position: 'relative' }}>
               <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>

@@ -1,9 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useOrdersNotify } from '@/context/OrdersNotifyContext';
 import { ICONS } from '@/lib/roleNav';
 
 const GEAR = <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2.1 1.2M17.7 15.3l2.1 1.2M4.2 16.5l2.1-1.2M17.7 8.7l2.1-1.2" /><circle cx="12" cy="12" r="7" /></>;
@@ -22,7 +24,7 @@ const GROUPS = [
   {
     id: 'servicio', label: 'Cocina y meseros', tint: 'salado', icon: ICONS.kitchen, at: [84, 54],
     items: [
-      { href: '/ordenes', label: 'Órdenes', icon: ICONS.orders },
+      { href: '/ordenes', label: 'Órdenes', icon: ICONS.orders, badge: true },
       { href: '/cocina', label: 'Cocina', icon: ICONS.kitchen },
       { href: '/camarero', label: 'Mesas', icon: ICONS.tables },
       { href: '/menu', label: 'Menú', icon: ICONS.menu },
@@ -55,7 +57,27 @@ export default function OwnerOrbit({ open, onClose }) {
   const reduce = useReducedMotion();
   const [group, setGroup] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname() || '/';
+  const { unseenCount } = useOrdersNotify();
+  const stageRef = useRef(null);
   useEffect(() => { setMounted(true); }, []);
+
+  // mientras está abierto, la página de atrás no se mueve
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+  // el foco entra al primer círculo (para teclado) y, al cambiar de nivel, al primero de ese nivel
+  useEffect(() => {
+    if (!open) return undefined;
+    const id = setTimeout(() => {
+      const el = stageRef.current && stageRef.current.querySelector(group ? '.orbit-item a' : '.orbit-group');
+      if (el) el.focus({ preventScroll: true });
+    }, reduce ? 0 : 260);
+    return () => clearTimeout(id);
+  }, [open, group, reduce]);
 
   useEffect(() => { if (!open) setGroup(null); }, [open]);
   useEffect(() => {
@@ -69,6 +91,8 @@ export default function OwnerOrbit({ open, onClose }) {
   const name = (profile && profile.name) || 'Dueño';
   const hubAt = g ? [11, 11] : HUB;
   const t = reduce ? { duration: 0 } : SPRING;
+  const here = (href) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
+  const badge = unseenCount > 9 ? '9+' : String(unseenCount);
 
   if (!mounted) return null;
   return createPortal(
@@ -83,7 +107,8 @@ export default function OwnerOrbit({ open, onClose }) {
           <button type="button" className="orbit-close" onClick={onClose} aria-label="Cerrar">
             <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
-          <div className="orbit-stage">
+          <div className="orbit-stage" ref={stageRef}>
+            <span className="orbit-ring" aria-hidden="true" style={{ left: `${HUB[0]}%`, top: `${HUB[1]}%`, opacity: g ? 0 : 1 }} />
             <svg className="orbit-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               <AnimatePresence>
                 {!g && GROUPS.map((x, i) => (
@@ -127,11 +152,13 @@ export default function OwnerOrbit({ open, onClose }) {
               const isOpen = group === x.id;
               const hidden = g && !isOpen;
               const at = isOpen ? [50, 50] : x.at;
+              const inside = x.items.some((it) => here(it.href));
+              const count = x.items.some((it) => it.badge) && unseenCount > 0;
               return (
                 <motion.button
                   key={x.id}
                   type="button"
-                  className={`orbit-node orbit-group is-${x.tint}${isOpen ? ' is-open' : ''}`}
+                  className={`orbit-node orbit-group is-${x.tint}${isOpen ? ' is-open' : ''}${inside ? ' is-here' : ''}`}
                   initial={reduce ? false : { scale: 0, opacity: 0, left: `${HUB[0]}%`, top: `${HUB[1]}%` }}
                   animate={{ scale: hidden ? 0.3 : 1, opacity: hidden ? 0 : 1, left: `${at[0]}%`, top: `${at[1]}%`, width: isOpen ? '32%' : '25%' }}
                   transition={reduce ? { duration: 0 } : { ...SPRING, delay: g ? 0 : 0.08 + i * 0.06 }}
@@ -142,6 +169,7 @@ export default function OwnerOrbit({ open, onClose }) {
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">{x.icon}</svg>
                   <span>{x.label}</span>
+                  {count && !isOpen && <em className="orbit-badge" aria-label={`${unseenCount} órdenes nuevas`}>{badge}</em>}
                 </motion.button>
               );
             })}
@@ -159,9 +187,10 @@ export default function OwnerOrbit({ open, onClose }) {
                     transition={reduce ? { duration: 0 } : { ...SPRING, delay: 0.06 + i * 0.05 }}
                     style={CENTER}
                   >
-                    <Link href={it.href} onClick={onClose} className={`is-${g.tint}`}>
+                    <Link href={it.href} onClick={onClose} className={`is-${g.tint}${here(it.href) ? ' is-here' : ''}`} aria-current={here(it.href) ? 'page' : undefined}>
                       <svg viewBox="0 0 24 24" aria-hidden="true">{it.icon}</svg>
                       <span>{it.label}</span>
+                      {it.badge && unseenCount > 0 && <em className="orbit-badge" aria-label={`${unseenCount} órdenes nuevas`}>{badge}</em>}
                     </Link>
                   </motion.div>
                 );

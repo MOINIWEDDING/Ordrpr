@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useAuth } from '@/context/AuthContext';
 import ProductDetailModal from './ProductDetailModal';
 
 export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, showDivider = true }) {
   const { addItem } = useCart();
+  const { isStaff } = useAuth();
   const { formatItem } = useCurrency();
   const { isFav, toggle } = useFavorites();
   const [confirming, setConfirming] = useState(false);
@@ -102,7 +104,7 @@ export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, s
           {showDivider && <div className="p-divider" />}
           <div className="p-bottom-row">
             <span className="p-price">{formatItem(item)}</span>
-            <motion.button
+            {!isStaff && <motion.button
               type="button"
               className={`p-plus${justAdded ? ' bump' : ''}`}
               aria-label="Agregar al carrito"
@@ -110,7 +112,7 @@ export default function ProductCard({ item, tint = 'manana', onEdit, onDelete, s
               onClick={handleAdd}
             >
               <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
-            </motion.button>
+            </motion.button>}
           </div>
         </div>
       </motion.article>
