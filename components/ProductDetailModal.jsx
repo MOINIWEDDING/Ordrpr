@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useCurrency, basePriceFor } from '@/context/CurrencyContext';
 import { normalizeGroups, initialSelection, toggleChoice, missingRequired, groupHint } from '@/lib/productOptions';
@@ -10,6 +11,7 @@ import { normalizeGroups, initialSelection, toggleChoice, missingRequired, group
 // filas para tocar, una nota para la cocina y, abajo y siempre a la vista, la cantidad y «Agregar · total».
 export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
   const { addItem } = useCart();
+  const { isStaff } = useAuth(); // el dueño ve el producto, pero no tiene carrito
   const { currency, format } = useCurrency();
   const { isFav, toggle } = useFavorites();
   const reduce = useReducedMotion();
@@ -129,7 +131,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
                 </motion.fieldset>
               ))}
 
-              {!soldOut && (
+              {!soldOut && !isStaff && (
                 <motion.div className="tfield pdx-note" {...rise(2 + options.length)}>
                   <input id={`pdx-note-${item.id}`} placeholder=" " maxLength={140} value={note} onChange={(e) => setNote(e.target.value)} />
                   <label htmlFor={`pdx-note-${item.id}`}>Nota para la cocina (opcional)</label>
@@ -138,7 +140,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
             </div>
           </div>
 
-          <div className="pdx-foot">
+          {!isStaff && <div className="pdx-foot">
             {missing && <p className="pdx-alert" role="alert">Elige {missing.toLowerCase()} para continuar</p>}
             {soldOut ? (
               <p className="pdx-alert is-soldout" role="alert">Agotado por ahora</p>
@@ -155,7 +157,7 @@ export default function ProductDetailModal({ item, tint = 'manana', onClose }) {
                 </motion.button>
               </div>
             )}
-          </div>
+          </div>}
         </motion.div>
       </motion.div>
     </AnimatePresence>

@@ -6,9 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function FloatingCartButton() {
   const { count, openDrawer } = useCart();
-  const { profile } = useAuth();
+  const { profile, isStaff } = useAuth();
   const pathname = usePathname();
-  const hide = pathname === '/cuenta' && !profile;
+  const hide = (pathname === '/cuenta' && !profile) || isStaff; // el dueño no usa carrito
 
   return (
     <AnimatePresence>
