@@ -2961,3 +2961,34 @@ body.equipo-mode #siteHeader, body.equipo-mode .tabbar, body.equipo-mode .fab-ca
   .team-page .acc-views{display:flex; overflow-x:auto; max-width:100%;}
   .team-page .acc-views button{white-space:nowrap; padding:10px 14px;}
 }
+
+/* ===== Círculos del dueño (botón de la cuenta) ===== */
+.orbit-overlay{position:fixed; inset:0; z-index:400; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:16px; background:rgba(29,22,16,.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);}
+.orbit-close{position:absolute; top:max(16px, env(safe-area-inset-top)); right:16px; width:44px; height:44px; border-radius:50%; border:1px solid rgba(243,236,221,.22); background:rgba(243,236,221,.08); color:var(--cream-on-dark); display:grid; place-items:center; cursor:pointer;}
+.orbit-close svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round;}
+.orbit-stage{position:relative; width:min(94vw, 520px, 70vh); aspect-ratio:1; container-type:inline-size;}
+.orbit-lines{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
+.orbit-lines line{stroke:rgba(243,236,221,.42); stroke-width:.45; stroke-linecap:round; vector-effect:non-scaling-stroke; stroke-width:2px;}
+.orbit-node{position:absolute; aspect-ratio:1; border-radius:50%; margin:0; padding:0;}
+button.orbit-node{border:none; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-family:var(--font-ui); -webkit-tap-highlight-color:transparent;}
+.orbit-hub{background:var(--cream); color:var(--ink); box-shadow:0 18px 50px -18px rgba(0,0,0,.6), 0 0 0 6px rgba(243,236,221,.12); padding:0 6%; z-index:2;}
+.orbit-hub b{font-size:clamp(14px, 4.2cqi, 20px); font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.orbit-hub small{font-size:clamp(11px, 2.8cqi, 13px); font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em;}
+.orbit-avatar{display:grid; place-items:center; width:34%; aspect-ratio:1; border-radius:50%; background:var(--amber); color:var(--on-amber); font-weight:800; font-size:clamp(18px, 5.4cqi, 28px); margin-bottom:2px;}
+.orbit-hub.is-back svg{width:clamp(22px, 7cqi, 34px); height:clamp(22px, 7cqi, 34px); flex:none; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;}
+.orbit-group{z-index:3; color:var(--ink); box-shadow:0 14px 34px -14px rgba(0,0,0,.55);}
+.orbit-group svg{width:30%; height:30%; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.orbit-group span{font-size:clamp(11px, 3cqi, 15px); font-weight:800; line-height:1.15; text-align:center; padding:0 10%;}
+.orbit-group.is-open{box-shadow:0 0 0 8px rgba(243,236,221,.14), 0 18px 44px -14px rgba(0,0,0,.6);}
+.orbit-group.is-open span{font-size:clamp(13px, 3.6cqi, 18px);}
+.is-manana{background:var(--tint-manana);} .orbit-group.is-manana svg{color:var(--tint-manana-deep);}
+.is-salado{background:var(--tint-salado);} .orbit-group.is-salado svg{color:var(--tint-salado-deep);}
+.is-experiencia{background:var(--tint-experiencia);} .orbit-group.is-experiencia svg{color:var(--tint-experiencia-deep);}
+.orbit-item{width:25%; z-index:3;}
+.orbit-item a{width:100%; height:100%; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--ink); text-decoration:none; font-family:var(--font-ui); box-shadow:0 12px 30px -14px rgba(0,0,0,.6); transition:transform .18s var(--ease);}
+.orbit-item a:hover, .orbit-item a:focus-visible{transform:scale(1.07);}
+.orbit-item a:active{transform:scale(.95);}
+.orbit-item svg{width:32%; height:32%; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.orbit-item span{font-size:clamp(10.5px, 2.8cqi, 14px); font-weight:800; text-align:center; padding:0 6%; line-height:1.1;}
+.orbit-logout{border:none; background:none; color:rgba(243,236,221,.7); font-family:var(--font-ui); font-size:14px; font-weight:800; text-decoration:underline; text-underline-offset:3px; cursor:pointer; padding:10px 14px;}
+.orbit-logout:hover{color:var(--cream-on-dark);}

@@ -8,6 +8,7 @@ import { useLoyaltySettings } from '@/lib/loyalty';
 import { useActiveTab } from '@/lib/activeTab';
 import { navForRole, ACCOUNT_TAB, MORE_ICON } from '@/lib/roleNav';
 import { useOrdersNotify } from '@/context/OrdersNotifyContext';
+import OwnerOrbit from '@/components/OwnerOrbit';
 
 const isCurrent = (pathname, href) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
 
@@ -19,7 +20,8 @@ export default function Tabbar() {
   const { loyalty } = useLoyaltySettings();
   const activeTab = useActiveTab();
   const [moreOpen, setMoreOpen] = useState(false);
-  useEffect(() => { setMoreOpen(false); }, [pathname]);
+  const [orbit, setOrbit] = useState(false);
+  useEffect(() => { setMoreOpen(false); setOrbit(false); }, [pathname]);
 
   // En la pantalla de bienvenida/login (Cuenta sin sesión) no mostramos la barra,
   // para que se sienta como una pantalla propia, sin navegación detrás.
@@ -61,8 +63,17 @@ export default function Tabbar() {
             Más
           </button>
         )}
-        {item(ACCOUNT_TAB)}
+        {isStaff ? (
+          <button type="button" className={isCurrent(pathname, '/cuenta') || orbit ? 'current' : ''} onClick={() => setOrbit(true)} aria-haspopup="dialog" aria-expanded={orbit}>
+            <span style={{ position: 'relative' }}>
+              <svg viewBox="0 0 24 24">{ACCOUNT_TAB.icon}</svg>
+              <span className="tab-dot staff" />
+            </span>
+            {ACCOUNT_TAB.label}
+          </button>
+        ) : item(ACCOUNT_TAB)}
       </nav>
+      {isStaff && <OwnerOrbit open={orbit} onClose={() => setOrbit(false)} />}
     </>
   );
 }
